@@ -5,32 +5,33 @@ algorithm:
     features_extractor_kwargs:
       net_arch:
         state:
-          layer: [192]
+          layer: [512]
 
     critic:
-      dist: mse
-      n_critics: 2
+      dist: symlog_disc
+      n_critics: 1
       net_arch:
-        layer: [192, 96]
+        layer: [512, 512]
     actor:
-      dist: normal
+      dist: tanh_normal
+#      squash_output: False
       net_arch:
-        layer: [192, 96]
-
+        layer: [512, 512]
+#    ln: True
     activation_fn: relu
     optimizer_class: adam
     optimizer_kwargs:
       weight_decay: 0.00001
-    share_features_extractor: False
-  learning_rate: 0.002
+  learning_rate: 0.001
   horizon: 96
   tau: 0.005
   gamma: 0.99
+  device: cuda
   gradient_steps: 10
-  train_freq: 48
+  train_freq: 96
   batch_size: 25600
-  actor_gradient_steps: 100
   buffer_size: 32
+  actor_gradient_steps: 1
 
 learn:
   total_timesteps: 1000000

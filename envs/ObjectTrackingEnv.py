@@ -86,9 +86,9 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
             self.velocity / 10,
             self.angular_velocity / 10,
         ]).to(self.device)
-        return TensorDict({
-            "state": state,
-        })
+        # return TensorDict({
+        #     "state": state,
+        # })
 
         obs = TensorDict({
             "state": state,
@@ -115,7 +115,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         ang_acc_r = (self.envs.angular_acceleration - 0).norm(dim=1) * -0.001
 
         diff_r = vel_r + ang_vel_r + aware_r + keep_pos_r  # + acc_r + ang_acc_r
-        disc_r = th.zeros_like(diff_r)
+        disc_r = base_r
 
-        reward = diff_r + disc_r + base_r
-        return {"reward": reward, "diff_r": diff_r, "disc_r": th.as_tensor(disc_r)}
+        reward = diff_r + disc_r
+        return reward
+

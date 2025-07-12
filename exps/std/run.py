@@ -1,5 +1,6 @@
 from VisFly.envs.HoverEnv import HoverEnv
 from envs.ObjectTrackingEnv import ObjectTrackingEnv
+from envs.VisualHoverEnv import VisualHoverEnv
 # from envs.TrackingEnv import AwareTrackEnv
 from envs.TrackingEnv import AwareTrackEnv2
 from algorithms.BPTT import BPTT
@@ -28,6 +29,7 @@ def parse_args():
 
 env_alias = {
     "hovering": HoverEnv,
+    "hoveringVisual": VisualHoverEnv,
     "objTracking": ObjectTrackingEnv,
     "awareTracking": AwareTrackEnv2
 

@@ -33,6 +33,7 @@ algorithm:
   train_freq: 48
   batch_size: 25600
   actor_gradient_steps: 100
+  buffer_size: 32
 
 learn:
   total_timesteps: 1000000

@@ -9,6 +9,8 @@ import torch as th
 from stable_baselines3.common.type_aliases import RolloutBufferSamples, DictRolloutBufferSamples, ReplayBufferSamples, DictReplayBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize
 from VisFly.utils.type import TensorDict
+import gc
+
 
 try:
     # Check memory used by replay buffer when possible
@@ -1215,16 +1217,51 @@ class SimpleRolloutBuffer:
         # self.include_disc_r = include_disc_r
 
     def clear(self):
+        # 显式删除所有引用
+        if hasattr(self, 'obs') and self.obs:
+            for obs in self.obs:
+                if isinstance(obs, TensorDict):
+                    obs.clear()  # 如果TensorDict有clear方法
+                del obs
+
+        if hasattr(self, 'next_obs') and self.next_obs:
+            for next_obs in self.next_obs:
+                if isinstance(next_obs, TensorDict):
+                    next_obs.clear()
+                del next_obs
+
+        # 删除所有tensor列表
+        for attr in ['obs', 'next_obs', 'reward', 'action', 'done',
+                     'episode_done', 'value', 'returns', 'disc_r', 'd_value']:
+            if hasattr(self, attr):
+                delattr(self, attr)
+
+        # 重新初始化为空列表
+        self.obs = []
+        self.next_obs = []
         self.reward = []
         self.action = []
         self.done = []
-        self.obs = []
-        self.next_obs = []
-        self.value = []
         self.episode_done = []
+        self.value = []
         self.returns = []
         self.disc_r = []
         self.d_value = []
+
+        # 强制垃圾回收
+        gc.collect()
+
+    # def clear(self):
+    #     self.reward = []
+    #     self.action = []
+    #     self.done = []
+    #     self.obs = []
+    #     self.next_obs = []
+    #     self.value = []
+    #     self.episode_done = []
+    #     self.returns = []
+    #     self.disc_r = []
+    #     self.d_value = []
 
     def add(self, obs, reward, action, next_obs, done, episode_done, value, disc_r=None, d_value=None):
         self.obs.append(obs)

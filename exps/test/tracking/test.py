@@ -16,9 +16,11 @@ class Test(TestBase):
                  save_path: Optional[str] = None,
                  ):
         super(Test, self).__init__(model=model, name=name, save_path=save_path, )
+        self.target_all = []
 
     def draw(self, names=None):
         state_data = th.stack(self.state_all).cpu()
+        targets = th.stack(self.target_all)
         action = th.stack([th.tensor(a) for a in self.action_all]).cpu()
         t = np.stack(self.t)[:, 0]
         for i in range(self.model.env.num_envs):
@@ -37,11 +39,14 @@ class Test(TestBase):
             plt.plot(t, state_data[:, i, 10:13], label=["wx", "wy", "wz"])
             plt.legend()
             plt.subplot(2, 3, 5)
-            plt.plot(t[:-1], action[:,i,:] , label=["a", "awx", "awy", "awz"])
+            plt.plot(t[:-1], action[:, i, :], label=["a", "awx", "awy", "awz"])
+            plt.legend()
+            plt.subplot(2, 3, 6)
+            plt.plot(t, targets[:, i], label="target")
             plt.legend()
             plt.tight_layout()
             plt.show()
-        col_dis = np.array([collision["col_dis"] for collision in self.collision_all])
+        # col_dis = np.array([collision["col_dis"] for collision in self.collision_all])
         # fig2, axes = FigFon.get_figure_axes(SubFigSize=(1, 1))
         # axes.plot(t, col_dis)
         # axes.set_xlabel("t/s")
@@ -49,16 +54,16 @@ class Test(TestBase):
         plt.show()
         # print("rewards_sum: ", np_rewards)
 
-        return [fig,]
+        return [fig, ]
 
     def test(
             self,
             policy=None,
             world=None,
             # model=None,
-            is_fig: bool = False,
-            is_video: bool = False,
-            is_sub_video: bool = False,
+            is_fig: bool = True,
+            is_video: bool = True,
+            is_sub_video: bool = True,
             is_fig_save: bool = False,
             is_video_save: bool = False,
             render_kwargs={},
@@ -81,6 +86,7 @@ class Test(TestBase):
         self.state_all.append(env.state)
         self.info_all.append([{} for _ in range(env.num_envs)])
         self.t.append(env.t.clone())
+        self.target_all.append((env.target - env.position).norm(dim=1))
         self.collision_all.append({"col_dis": env.collision_dis,
                                    "is_col": env.is_collision,
                                    "col_pt": env.collision_point})
@@ -108,6 +114,7 @@ class Test(TestBase):
             self.state_all.append(state)
             self.obs_all.append(obs)
             self.info_all.append(copy.deepcopy(info))
+            self.target_all.append((env.target - env.position).norm(dim=1))
             self.t.append(env.t.clone())
             if env.visual:
                 render_kwargs["points"] = th.atleast_2d(env.target)

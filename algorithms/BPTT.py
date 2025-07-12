@@ -202,9 +202,10 @@ class BPTT(OffPolicyAlgorithm):
             reward, done = reward.to(self.device), done.to(self.device)
 
             # compute the temporal difference
-            next_actions = self.policy.actor(obs)
-            next_actions = next_actions if not isinstance(next_actions, tuple) else next_actions[0]
-            next_values, _ = th.cat(self.policy.critic_target(obs.detach(), next_actions.detach()), dim=-1).min(dim=-1)
+            with th.no_grad():
+                next_actions = self.policy.actor(obs)
+                next_actions = next_actions if not isinstance(next_actions, tuple) else next_actions[0]
+                next_values, _ = th.cat(self.policy.critic_target(obs.detach(), next_actions.detach()), dim=-1).min(dim=-1)
 
             # compute the loss
             actor_loss = actor_loss - reward * discount_factor - entropy * discount_factor * self.ent_coef
@@ -336,10 +337,10 @@ class BPTT(OffPolicyAlgorithm):
             if maybe_ep_info is not None:
                 self.train_info_buffer.extend([maybe_ep_info])
 
-            log_interval = 100
+            # log_interval = 100
             if dones[idx]:
-                self._episode_num += 1
-                if log_interval is not None and self._episode_num % log_interval == 0:
+                self._train_episode_num += 1
+                if self._train_episode_num % self.train_env.num_envs == 0:
                     self._train_dump_logs()
 
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
@@ -542,9 +543,10 @@ class BPTT(OffPolicyAlgorithm):
     ) -> None:
         path = self.policy_save_path if path is None else path
         self.env.envs.close()
-        self.train_env.envs.close()
-        print(f"Saving model to {path}.zip")
+        # self.train_env.envs.detach()
         delattr(self, "train_env")
+        # self.train_env.envs.close()
+        print(f"Saving model to {path}.zip")
         super().save(
             path,
             exclude=exclude,
