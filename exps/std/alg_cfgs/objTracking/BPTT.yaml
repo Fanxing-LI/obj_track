@@ -5,17 +5,16 @@ algorithm:
     features_extractor_kwargs:
       net_arch:
         state:
-          layer: [192]
+          layer: [512,512]
         depth:
-          channel: [256, 128, 64,32]
+          channel: [32, 64, 128,256]
           kernel_size: 4
           stride: 2
           padding: 1
-          ln: True
-          # bn: True
+#          ln: True
+          bn: True
           output_channel: 3
           bias: False
-
 
     critic:
       dist: symlog_disc
@@ -28,12 +27,12 @@ algorithm:
       net_arch:
         layer: [512, 512]
 #    ln: True
-    activation_fn: relu
+    activation_fn: silu
     optimizer_class: adam
     optimizer_kwargs:
       weight_decay: 0.00001
   learning_rate: 0.001
-  horizon: 96
+  horizon: 72
   tau: 0.005
   gamma: 0.99
   device: cuda

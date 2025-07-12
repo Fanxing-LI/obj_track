@@ -1,7 +1,4 @@
-from VisFly.envs.HoverEnv import HoverEnv
-from envs.ObjectTrackingEnv import ObjectTrackingEnv
-# from envs.TrackingEnv import AwareTrackEnv
-from envs.TrackingEnv import AwareTrackEnv2
+from envs.FlipEnv import FlipEnv
 from algorithms.BPTT import BPTT
 from algorithms.SHAC import SHAC
 from VisFly.utils.algorithms.PPO import PPO
@@ -12,24 +9,23 @@ import argparse
 from VisFly.utils.common import load_yaml_config
 
 
-# th.autograd.set_detect_anomaly(True)
+th.autograd.set_detect_anomaly(True)
+
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run experiments', add_help=False)
     parser.add_argument('--comment', '-c', type=str, default="std")
     parser.add_argument("--train", "-t", type=int, default=1)
-    parser.add_argument("--algorithm", "-a", type=str, default="BPTT")
-    parser.add_argument("--env", "-e", type=str, default="hovering")
+    parser.add_argument("--algorithm", "-a", type=str, default="SHAC")
+    parser.add_argument("--env", "-e", type=str, default="flip")
     parser.add_argument("--seed", "-s", type=int, default=42)
     parser.add_argument("--weight", "-w", type=str, default=None, )
     return parser
 
 
 env_alias = {
-    "hovering": HoverEnv,
-    "objTracking": ObjectTrackingEnv,
-    "awareTracking": AwareTrackEnv2
+    "flip": FlipEnv
 
 }
 
@@ -60,7 +56,7 @@ env = env_alias[args.env](
 # if train mode, train the model
 if args.train:
 
-    if args.algorithm == "PPO":
+    if args.algorithm == "PPO" :
         model = alg_alias[args.algorithm](
             env=env,
             seed=args.seed,

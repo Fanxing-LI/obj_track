@@ -1282,3 +1282,14 @@ class SimpleRolloutBuffer:
         if self.d_value[0] is not None:
             self.d_returns = th.stack(self.d_returns)
             self.d_value = th.stack(self.d_value)
+
+
+class RequiresGrad:
+    def __init__(self, model):
+        self._model = model
+
+    def __enter__(self):
+        self._model.requires_grad_(requires_grad=True)
+
+    def __exit__(self, *args):
+        self._model.requires_grad_(requires_grad=False)

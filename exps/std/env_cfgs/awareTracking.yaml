@@ -1,41 +1,22 @@
+
 env:
   num_agent_per_scene: 256
   max_episode_steps: 512
-#  sensor_kwargs:
-#    - sensor_type: DEPTH
-#      uuid: depth
-#      resolution:
-#        - 64
-#        - 64
-#      position:
-#        - 0
-#        - 0.2
-#        - 0.0
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/garage_empty
-    obj_settings:
-      path: circle
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
     ctrl_delay: True
     action_type: "bodyrate"
-  random_kwargs:
-    state_generator:
-      class: Uniform
-#      class: TargetUniform
-      kwargs:
-        - position:
-            mean: [ 5.0, 0.0, 1]
-            half: [ 1.0, 1.0, 0.2 ]
-
-  visual: True
+  visual: False
   device: cpu
-  requires_grad: True
-  tensor_output: True
 
 eval_env:
   num_agent_per_scene: 4
+  max_episode_steps: 512
+#  sensor_kwargs: []
+#  requires_grad: False
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/garage_empty
     render_settings:

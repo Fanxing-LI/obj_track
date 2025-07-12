@@ -205,12 +205,13 @@ class Actor(BaseModel):
         self._dist_type = dist
         self.features_extractor = features_extractor
 
-        self.mu, _ = create_mlp(input_dim=self.features_extractor.features_dim,
-                                activation_fn=activation_fn,
-                                **net_arch,
-                                )
+        self.mu, output_dim = create_mlp(input_dim=self.features_extractor.features_dim,
+                                         activation_fn=activation_fn,
+                                         **net_arch,
+                                         )
+        self.sigma = copy.deepcopy(self.mu)
         # self.range = (action_space.low, action_space.high)
-        self._mean_layer = nn.Linear(net_arch["layer"][-1], action_space.shape[0])
+        self._mean_layer = nn.Linear(output_dim, action_space.shape[0])
         self._std_layer = copy.deepcopy(self._mean_layer)
         self.dist = self.dist_alias[dist]
         self._create_optimizer(optimizer_class=optimizer_class, optimizer_kwargs=optimizer_kwargs, lr_scheduler_class=lr_scheduler_class, lr_scheduler_kwargs=lr_scheduler_kwargs)
@@ -226,13 +227,22 @@ class Actor(BaseModel):
         #     return self.get_dist(obs)
         return self.get_dist(obs).rsample().clamp(min=self._low, max=self._high)
 
+    def action_and_entropy(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+        """
+        Returns the action and the entropy of the distribution.
+        """
+        dist = self.get_dist(obs)
+        return dist.rsample().clamp(min=self._low, max=self._high), dist.entropy()
+
     def get_dist(self, obs):
         obs = obs_as_tensor(obs, device=self.device)
         features = self.features_extractor(obs)
         mu = self.mu(features)
+        # sigma = self.sigma(features)
         mean = self._mean_layer(mu)
         std = self._std_layer(mu)
         std = scale_std(std)
+        # std = std.exp()
         if self._dist_type == "trunc_normal":
             return torchd.independent.Independent(self.dist(mean, std, self._low, self._high), 1)
         else:
@@ -285,7 +295,7 @@ class Policy(nn.Module):
             activation_fn: Type[nn.Module] = "relu",
             actor: dict = {},
             critic: dict = {},
-            share_features_extractor: bool = True,
+            share_features_extractor: bool = False,
             optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
             optimizer_kwargs: Optional[Dict[str, Any]] = None,
             use_sde: bool = False

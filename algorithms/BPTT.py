@@ -5,23 +5,18 @@ import time
 from collections import deque
 from typing import Type, Optional, Dict, ClassVar, Any, Union, List, Iterable, Tuple
 
-from stable_baselines3 import HerReplayBuffer
-from stable_baselines3.common import logger
 import os, sys
 from gymnasium import spaces
 import numpy as np
 import torch as th
-from stable_baselines3.common.base_class import SelfBaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.vec_env import VecEnv
 
 from VisFly.utils.policies.td_policies import BasePolicy, MultiInputPolicy
-# from stable_baselines3.sac.policies import MultiInputPolicy as SAC_MultiInputPolicy
 from stable_baselines3.common.type_aliases import Schedule, MaybeCallback, TrainFreq, TrainFrequencyUnit, RolloutReturn, GymEnv
-from stable_baselines3.common.utils import get_schedule_fn, should_collect_more_steps
 from tqdm import tqdm
-from stable_baselines3.common.utils import polyak_update, get_parameters_by_name, safe_mean
+from stable_baselines3.common.utils import polyak_update, get_parameters_by_name, safe_mean, should_collect_more_steps
 from torch.nn import functional as F
 from VisFly.utils.algorithms.lr_scheduler import transfer_schedule
 from VisFly.utils.test.debug import get_network_statistics
@@ -30,7 +25,7 @@ from VisFly.utils.common import set_seed
 
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.sac.sac import SAC, SelfSAC
-from algorithms.common import FullDictReplayBuffer, DictReplayBuffer, compute_td_returns, DataBuffer3, SimpleRolloutBuffer
+from algorithms.common import FullDictReplayBuffer, DictReplayBuffer, compute_td_returns, DataBuffer3, SimpleRolloutBuffer, RequiresGrad
 from algorithms.policy import Policy as SimplePolicy
 
 
@@ -66,13 +61,13 @@ class BPTT(OffPolicyAlgorithm):
             pre_stop: float = 0.1,
             device: Optional[str] = "auto",
             seed: int = 42,
-            ent_coef: Union[str, float] = "auto",
+            ent_coef: Union[str, float] = 0.0001,
             target_update_interval: int = 1,
             target_entropy: Union[str, float] = "auto",
             use_sde: bool = False,
             sde_sample_freq: int = -1,
             use_sde_at_warmup: bool = False,
-            stats_window_size: int = 100,
+            stats_window_size: Optional[int] = None,
             tensorboard_log: Optional[str] = None,
             verbose: int = 1,
             replay_buffer_class: Optional[Type[DictReplayBuffer]] = None,
@@ -100,6 +95,10 @@ class BPTT(OffPolicyAlgorithm):
 
         self.actor_gradient_steps = actor_gradient_steps
         self._actor_n_updates = 0
+
+        stats_window_size = stats_window_size if stats_window_size else self.num_envs
+
+        self._train_episode_num = 0
 
         super().__init__(
             policy=policy,
@@ -139,13 +138,21 @@ class BPTT(OffPolicyAlgorithm):
     def _set_name(self):
         self.name = "BPTT"
 
+    def _setup_learn(self, *args, **kwargs) -> Tuple[int, BaseCallback]:
+        r = super()._setup_learn(*args, **kwargs)
+        self.train_info_buffer = deque(maxlen=self.train_env.num_envs)
+        self.train_num_timesteps = 0
+        return r
+
     def _setup_model(self):
         super()._setup_model()
 
         self._set_name()
 
         self.env.reset()
-        self.train_env.reset()
+        if self.train_env:
+            self.train_env.reset()
+            self.train_env.set_requires_grad(True)
 
         self.policy.critic_bp = self.policy.critic
 
@@ -166,9 +173,9 @@ class BPTT(OffPolicyAlgorithm):
             index += 1
             path = f"{self.save_path}/{self.name}_{self.comment}_{index}" if self.comment is not None \
                 else f"{self.save_path}/{self.name}_{index}"
-        self.policy_save_path = path + ".zip"
+        self.policy_save_path = path
 
-    def train_actor(self):
+    def train_actor(self, replay_data):
         # assert self.H >= 1, "horizon must be greater than 1"
         ent_coef_loss = None
         self.train_env.detach()
@@ -182,28 +189,31 @@ class BPTT(OffPolicyAlgorithm):
             obs = self.train_env.get_observation()
             pre_obs = obs.clone()
             # iteration
-            actions = self.policy.actor(pre_obs)
-
+            actions, entropy = self.policy.actor.action_and_entropy(pre_obs)
             # step
             obs, reward, done, info = self.train_env.step(actions)
             for i in range(len(episode_done)):
                 episode_done[i] = info[i]["episode_done"]
 
+            self.train_num_timesteps += self.env.num_envs
+            if done.any():
+                self._update_train_info_buffer(info, done)
+
             reward, done = reward.to(self.device), done.to(self.device)
 
             # compute the temporal difference
             next_actions = self.policy.actor(obs)
+            next_actions = next_actions if not isinstance(next_actions, tuple) else next_actions[0]
             next_values, _ = th.cat(self.policy.critic_target(obs.detach(), next_actions.detach()), dim=-1).min(dim=-1)
 
             # compute the loss
-            actor_loss = actor_loss - reward * discount_factor
-            discount_factor = discount_factor * self.gamma * ~done + done
-
+            actor_loss = actor_loss - reward * discount_factor - entropy * discount_factor * self.ent_coef
             done_but_not_episode_end = (done | (inner_step == self.H - 1)) & ~episode_done
             if done_but_not_episode_end.any() and self._end_value:
                 actor_loss = actor_loss - \
-                             next_values * discount_factor * done_but_not_episode_end
+                             next_values * discount_factor * self.gamma * done_but_not_episode_end
 
+            discount_factor = discount_factor * self.gamma * ~done + done
             # pre_active = pre_active & ~done
 
             self.rollout_buffer.add(obs=pre_obs.clone().detach(),
@@ -223,9 +233,11 @@ class BPTT(OffPolicyAlgorithm):
         self.policy.actor.optimizer.step()
         # polyak_update(params=self.policy.actor.parameters(),
         #               target_params=self.policy.actor.parameters(), tau=self.tau)
-        self.rollout_buffer.compute_returns()
 
-        # update critic
+        self.rollout_buffer.compute_returns()
+        self.train_env.detach()
+
+        # # update critic
         for i in range(self.gradient_steps):
             values, _ = th.cat(self.policy.critic(self.rollout_buffer.obs, self.rollout_buffer.action), dim=-1).min(dim=-1)
             target = self.rollout_buffer.returns
@@ -248,11 +260,12 @@ class BPTT(OffPolicyAlgorithm):
             self: SelfSAC,
             total_timesteps: int,
             callback: MaybeCallback = None,
-            log_interval: int = 500,
-            tb_log_name: str = "ABPT",
+            log_interval: Optional[int] = None,
+            tb_log_name: str = "Algorithm",
             reset_num_timesteps: bool = True,
             progress_bar: bool = False,
     ) -> SelfSAC:
+        log_interval = log_interval if log_interval else self.n_envs
         # add tqdm
         total_timesteps, callback = self._setup_learn(
             total_timesteps,
@@ -287,25 +300,47 @@ class BPTT(OffPolicyAlgorithm):
                     if self.num_timesteps > 0 and self.num_timesteps > self.learning_starts:
                         # If no `gradient_steps` is specified,
                         # do as many gradients steps as steps performed during the rollout
-                        gradient_steps = self.gradient_steps if self.gradient_steps >= 0 else rollout.episode_timesteps
                         # Special case when the user passes `gradient_steps=0`
-                        if gradient_steps > 0:
-                            self.train(
-                                gradient_steps=self.gradient_steps,
-                                batch_size=self.batch_size,
-                            )
-                            # if self.num_timesteps >= 3e6:
-                            #     self.train_actor()
+                        self.train(
+                            gradient_steps=self.gradient_steps,
+                            batch_size=self.batch_size,
+                        )
 
                     # Update the progress bar
                     pbar.update(self.num_timesteps - pbar.n)
             except KeyboardInterrupt:
-                print("Training interrupted by user, saving current model...")
-                self.save(self.policy_save_path + "_cache")
+                # print(f"Training interrupted by user, saving current model at {self.policy_save_path}")
+                # self.save(self.policy_save_path)
+                print("Training interrupted by user, stopping training.")
 
         callback.on_training_end()
 
         return self
+
+    def _update_train_info_buffer(self, infos: List[Dict[str, Any]], dones: Optional[np.ndarray] = None) -> None:
+        """
+        Retrieve reward, episode length, episode success and update the buffer
+        if using Monitor wrapper or a GoalEnv.
+
+        :param infos: List of additional information about the transition.
+        :param dones: Termination signals
+        """
+        assert self.train_info_buffer is not None
+        # assert self.ep_success_buffer is not None
+
+        if dones is None:
+            dones = np.array([False] * len(infos))
+        for idx, info in enumerate(infos):
+            maybe_ep_info = info.get("episode")
+            maybe_is_success = info.get("is_success")
+            if maybe_ep_info is not None:
+                self.train_info_buffer.extend([maybe_ep_info])
+
+            log_interval = 100
+            if dones[idx]:
+                self._episode_num += 1
+                if log_interval is not None and self._episode_num % log_interval == 0:
+                    self._train_dump_logs()
 
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         actor_gradient_steps = gradient_steps if self.actor_gradient_steps is None else gradient_steps
@@ -316,13 +351,18 @@ class BPTT(OffPolicyAlgorithm):
         self._update_learning_rate(optimizers)
 
         for j in range(actor_gradient_steps):
-            self.train_actor()
+            replay_data = self.replay_buffer.sample(batch_size=self.train_env.num_envs)
+            self.train_actor(replay_data)
+            pass
 
         self._actor_n_updates += self.actor_gradient_steps
         self._n_updates += gradient_steps
+        # self.num_timesteps += self.num_envs * self.H
 
         self.logger.record("train/actor_n_updates", self._actor_n_updates)
         self.logger.record("train/n_updates", self._n_updates)
+
+        self.policy.set_training_mode(False)
 
     # def _store_transition(
     #         self,
@@ -392,7 +432,7 @@ class BPTT(OffPolicyAlgorithm):
     #     # Save the unnormalized observation
     #     if self._vec_normalize_env is not None:
     #         self._last_original_obs = new_obs_
-
+    #
     # def collect_rollouts(
     #         self,
     #         env: VecEnv,
@@ -491,72 +531,26 @@ class BPTT(OffPolicyAlgorithm):
     #     callback.on_rollout_end()
     #
     #     return RolloutReturn(num_collected_steps * env.num_envs, num_collected_episodes, continue_training)
-
     #
+
+
     def save(
             self,
             path: Union[str, pathlib.Path, io.BufferedIOBase] = None,
             exclude: Optional[Iterable[str]] = None,
             include: Optional[Iterable[str]] = None,
     ) -> None:
-        path = self.save_path if path is None else path
+        path = self.policy_save_path if path is None else path
+        self.env.envs.close()
+        self.train_env.envs.close()
+        print(f"Saving model to {path}.zip")
+        delattr(self, "train_env")
         super().save(
             path,
             exclude=exclude,
             include=include,
         )
 
-    # def _sample_action(
-    #         self,
-    #         learning_starts: int,
-    #         action_noise: Optional[ActionNoise] = None,
-    #         n_envs: int = 1,
-    # ) -> Tuple[np.ndarray, np.ndarray]:
-    #     """
-    #     Sample an action according to the exploration policy.
-    #     This is either done by sampling the probability distribution of the policy,
-    #     or sampling a random action (from a uniform distribution over the action space)
-    #     or by adding noise to the deterministic output.
-    #
-    #     :param action_noise: Action noise that will be used for exploration
-    #         Required for deterministic policy (e.g. TD3). This can also be used
-    #         in addition to the stochastic policy for SAC.
-    #     :param learning_starts: Number of steps before learning for the warm-up phase.
-    #     :param n_envs:
-    #     :return: action to take in the environment
-    #         and scaled action that will be stored in the replay buffer.
-    #         The two differs when the action space is not normalized (bounds are not [-1, 1]).
-    #     """
-    #     # Select action randomly or according to policy
-    #     if self.num_timesteps < learning_starts and not (self.use_sde and self.use_sde_at_warmup):
-    #         # Warmup phase
-    #         unscaled_action = np.array([self.action_space.sample() for _ in range(n_envs)])
-    #     else:
-    #         # Note: when using continuous actions,
-    #         # we assume that the policy uses tanh to scale the action
-    #         # We use non-deterministic action in the case of SAC, for TD3, it does not matter
-    #         assert self._last_obs is not None, "self._last_obs was not set"
-    #         unscaled_action, _ = self.predict(self._last_obs, deterministic=False)
-    #         # unscaled_action, _, h = self.predict(self._last_obs, deterministic=False)
-    #         # self.env.latent = h
-    #
-    #     # Rescale the action from [low, high] to [-1, 1]
-    #     if isinstance(self.action_space, spaces.Box):
-    #         scaled_action = self.policy.scale_action(unscaled_action)
-    #
-    #         # Add noise to the action (improve exploration)
-    #         if action_noise is not None:
-    #             scaled_action = np.clip(scaled_action + action_noise(), -1, 1)
-    #
-    #         # We store the scaled action in the buffer
-    #         buffer_action = scaled_action
-    #         action = self.policy.unscale_action(scaled_action)
-    #     else:
-    #         # Discrete case, no need to normalize or clip
-    #         buffer_action = unscaled_action
-    #         action = buffer_action
-    #     return action, buffer_action
-    #
     def predict(
             self,
             observation: Union[np.ndarray, Dict[str, np.ndarray]],
@@ -569,6 +563,36 @@ class BPTT(OffPolicyAlgorithm):
 
         return action
 
+    def _train_dump_logs(self)-> None:
+        """
+        Write log for training.
+        """
+        assert self.train_info_buffer is not None
+
+        time_elapsed = max((time.time_ns() - self.start_time) / 1e9, sys.float_info.epsilon)
+        fps = int((self.train_num_timesteps - self._num_timesteps_at_start) / time_elapsed)
+        self.logger.record("time/episodes", self._episode_num, exclude="tensorboard")
+        if len(self.train_info_buffer) > 0 and len(self.train_info_buffer[0]) > 0:
+            self.logger.record("rollout/train_rew_mean", safe_mean([ep_info["r"] for ep_info in self.train_info_buffer]))
+            self.logger.record("rollout/train_len_mean", safe_mean([ep_info["l"] for ep_info in self.train_info_buffer]))
+
+            if len(self.train_info_buffer[0]["extra"]) >= 0:
+                for key in self.train_info_buffer[0]["extra"].keys():
+                    self.logger.record(
+                        f"rollout/train_{key}_mean",
+                        safe_mean(
+                            [ep_info["extra"][key] for ep_info in self.train_info_buffer]
+                        ),
+                    )
+        self.logger.record("time/train_fps", fps)
+        # self.logger.record("time/train_time_elapsed", int(time_elapsed), exclude="tensorboard")
+        self.logger.record("time/train_total_timesteps", self.train_num_timesteps, exclude="tensorboard")
+        if self.use_sde:
+            self.logger.record("train/std", (self.actor.get_std()).mean().item())
+
+        # Pass the number of timesteps for tensorboard
+        self.logger.dump(step=self.train_num_timesteps)
+
     def _dump_logs(self) -> None:
         """
         Write log.
@@ -580,8 +604,9 @@ class BPTT(OffPolicyAlgorithm):
         fps = int((self.num_timesteps - self._num_timesteps_at_start) / time_elapsed)
         self.logger.record("time/episodes", self._episode_num, exclude="tensorboard")
         if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-            self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
-            self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+            self.logger.record("rollout/eval_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+            self.logger.record("rollout/eval_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+
             if len(self.ep_info_buffer[0]["extra"]) >= 0:
                 for key in self.ep_info_buffer[0]["extra"].keys():
                     self.logger.record(
@@ -607,6 +632,8 @@ class BPTT(OffPolicyAlgorithm):
             action_noise: Optional[ActionNoise] = None,
             n_envs: int = 1,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        action = self.predict(self._last_obs, deterministic=False).cpu().numpy()
+
+        action = self.predict(self._last_obs, deterministic=False)
+        action = action.cpu().numpy() if not isinstance(action, tuple) else action[0]
         buffer_action = copy.deepcopy(action)
         return action, buffer_action
