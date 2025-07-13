@@ -1,11 +1,19 @@
 algorithm:
   policy: SimplePolicy
   policy_kwargs:
-    features_extractor_class: StateExtractor
+    features_extractor_class: StateImageExtractor
     features_extractor_kwargs:
       net_arch:
         state:
           layer: [192]
+        depth:
+          channel: [ 32, 64, 128, 256 ]
+          kernel_size: 4
+          stride: 2
+          padding: 1
+          layer: [ ]
+          ln: True
+          bias: False
 
     critic:
       dist: mse
@@ -24,7 +32,6 @@ algorithm:
     share_features_extractor: False
 
   learning_rate: 0.002
-  ent_coef: 0.00
   horizon: 96
   tau: 0.005
   gamma: 0.99
