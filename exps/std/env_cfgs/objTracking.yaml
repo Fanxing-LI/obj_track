@@ -14,7 +14,7 @@ env:
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/garage_empty
     obj_settings:
-      path: circle
+      path: circle2
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
