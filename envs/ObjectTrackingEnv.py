@@ -62,6 +62,10 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.height = 0.3
         self.radius = 2
         # self.update_target()
+        self.observation_space["state"] = spaces.Box(
+            shape=(10,), low=-th.inf, high=th.inf, dtype=np.float32)
+        test = 1
+
 
     def update_target(self):
         self.target = self.center
@@ -81,7 +85,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         orientation = self.envs.dynamics._orientation.clone()
         local_targets = orientation.inv_rotate(rela_tar.T).T
         state = th.hstack([
-            local_targets / self.max_sense_radius,
+            # local_targets / self.max_sense_radius,
             self.orientation,
             self.velocity / 10,
             self.angular_velocity / 10,
