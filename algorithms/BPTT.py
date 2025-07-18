@@ -542,7 +542,6 @@ class BPTT(OffPolicyAlgorithm):
             include: Optional[Iterable[str]] = None,
     ) -> None:
         path = self.policy_save_path if path is None else path
-        self.env.envs.close()
         # self.train_env.envs.detach()
         delattr(self, "train_env")
         # self.train_env.envs.close()

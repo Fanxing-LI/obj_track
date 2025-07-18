@@ -112,13 +112,13 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         aware_r = proj * 0.05
         pos_factor = -0.1 * 1 / 9
         pos_r = (self.position - self.target).norm(dim=1) * pos_factor
-        keep_pos_r = ((self.position - self.target).norm(dim=1) - 1.0).abs() * pos_factor
+        keep_pos_r = ((self.position - self.target).norm(dim=1) - 1.0).abs() * -0.02
         vel_r = (self.velocity - 0).norm(dim=1) * -0.002
         ang_vel_r = (self.angular_velocity - 0).norm(dim=1) * -0.002
         acc_r = (self.envs.acceleration - 0).norm(dim=1) * -0.001
         ang_acc_r = (self.envs.angular_acceleration - 0).norm(dim=1) * -0.001
 
-        diff_r = vel_r + ang_vel_r + aware_r + keep_pos_r  # + acc_r + ang_acc_r
+        diff_r = vel_r + ang_vel_r + aware_r + keep_pos_r + acc_r # + acc_r + ang_acc_r
         disc_r = base_r
 
         reward = diff_r + disc_r
