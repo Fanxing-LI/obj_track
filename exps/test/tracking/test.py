@@ -64,8 +64,8 @@ class Test(TestBase):
             is_fig: bool = True,
             is_video: bool = True,
             is_sub_video: bool = True,
-            is_fig_save: bool = False,
-            is_video_save: bool = False,
+            is_fig_save: bool = True,
+            is_video_save: bool = True,
             render_kwargs={},
 
     ):

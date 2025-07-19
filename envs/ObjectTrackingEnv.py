@@ -11,6 +11,25 @@ from VisFly.utils.tools.train_encoder import model as encoder
 from VisFly.utils.type import TensorDict
 
 
+def get_batch_mask_centers_torch(mask_batch):
+    """PyTorch版本"""
+    B, H, W = mask_batch.shape
+    centers = []
+
+    for b in range(B):
+        mask = mask_batch[b]
+        indices = th.nonzero(mask, as_tuple=True)
+
+        if len(indices[0]) == 0:
+            centers.append(None)
+        else:
+            center_y = th.mean(indices[0].float())
+            center_x = th.mean(indices[1].float())
+            centers.append((center_x.item(), center_y.item()))
+
+    return centers
+
+
 class ObjectTrackingEnv(DroneGymEnvsBase):
     def __init__(
             self,
@@ -61,9 +80,10 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.radius_spd = 0.2 * th.pi / 1
         self.height = 0.3
         self.radius = 2
+        self.box_center = th.ones((self.num_envs, 3), dtype=th.float32, device=self.device) * 0.5
         # self.update_target()
-        self.observation_space["state"] = spaces.Box(
-            shape=(10,), low=-th.inf, high=th.inf, dtype=np.float32)
+        # self.observation_space["state"] = spaces.Box(
+        #     shape=(10,), low=-th.inf, high=th.inf, dtype=np.float32)
         test = 1
 
 
@@ -74,7 +94,15 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
                                  self.height * th.sin(self.radius_spd * self.t) + self.center[2]
                                  ]).T
         self.target = th.stack([p[0] for p in self.envs.dynamic_object_position])
-
+        h, w = self.sensor_obs["semantic"].shape[-2:]
+        box_center_cache = get_batch_mask_centers_torch(th.tensor(self.sensor_obs["semantic"] == 5).squeeze(dim=1))
+        for i, center in enumerate(box_center_cache):
+            if center is not None:
+                self.box_center[i, 0] = center[0]/h
+                self.box_center[i, 1] = center[1]/w
+                self.box_center[i, 2] = th.tensor(self.sensor_obs["depth"][i, 0, int(center[1]), int(center[0])]) # Normalize depth
+            # else:
+            #     self.box_center[i, :] = th.zeros(3, dtype=th.float32, device=self.device)
     def get_observation(
             self,
             indices=None
@@ -84,8 +112,10 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         rela_tar = self.target - self.position
         orientation = self.envs.dynamics._orientation.clone()
         local_targets = orientation.inv_rotate(rela_tar.T).T
+
         state = th.hstack([
             # local_targets / self.max_sense_radius,
+            self.box_center,
             self.orientation,
             self.velocity / 10,
             self.angular_velocity / 10,
@@ -97,6 +127,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         obs = TensorDict({
             "state": state,
             "depth": th.as_tensor(self.sensor_obs["depth"]).clamp_min(0.2),
+            "semantic": th.as_tensor(self.sensor_obs["semantic"].astype(np.float32)),
         })
 
         return obs

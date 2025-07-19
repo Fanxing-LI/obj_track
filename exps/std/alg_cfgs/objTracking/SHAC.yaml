@@ -1,7 +1,7 @@
 algorithm:
   policy: SimplePolicy
   policy_kwargs:
-    features_extractor_class: StateImageExtractor
+    features_extractor_class: FlexibleExtractor
     features_extractor_kwargs:
       net_arch:
         state:
