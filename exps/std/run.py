@@ -1,3 +1,5 @@
+import os, sys
+sys.path.append(os.getcwd())
 from VisFly.envs.HoverEnv import HoverEnv
 from envs.ObjectTrackingEnv import ObjectTrackingEnv
 from envs.VisualHoverEnv import VisualHoverEnv

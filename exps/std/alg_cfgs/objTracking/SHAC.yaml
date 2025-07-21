@@ -5,33 +5,37 @@ algorithm:
     features_extractor_kwargs:
       net_arch:
         state:
-          layer: [192]
-        depth:
-          channel: [ 32, 64, 128, 256 ]
-          kernel_size: 4
-          stride: 2
-          padding: 1
-          layer: [ ]
-          ln: True
-          bias: False
+          layer: [512, 512]
+#        depth:
+#          channel: [ 32, 64, 128, 256 ]
+#          kernel_size: 4
+#          stride: 2
+#          padding: 1
+#          layer: [1024]
+#          bn: True
+#          # ln: True
+#          bias: True
 
     critic:
       dist: mse
       n_critics: 2
       net_arch:
-        layer: [192, 96]
+        layer: [512, 512]
+        bn: True
     actor:
-      dist: normal
+      dist: tanh_normal
       net_arch:
-        layer: [192, 96]
+        layer: [512, 512]
+        bn: True
 
-    activation_fn: relu
+    activation_fn: silu
     optimizer_class: adam
     optimizer_kwargs:
-      weight_decay: 0.00001
+      weight_decay: 0.0001  # 增加正则化强度
+      # lr_schedule: linear  # 添加学习率调度
     share_features_extractor: False
 
-  learning_rate: 0.002
+  learning_rate: 0.003  # 降低学习率，提高稳定性
   horizon: 96
   tau: 0.005
   gamma: 0.99

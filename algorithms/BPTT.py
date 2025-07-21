@@ -574,22 +574,22 @@ class BPTT(OffPolicyAlgorithm):
         fps = int((self.train_num_timesteps - self._num_timesteps_at_start) / time_elapsed)
         self.logger.record("time/episodes", self._episode_num, exclude="tensorboard")
         if len(self.train_info_buffer) > 0 and len(self.train_info_buffer[0]) > 0:
-            self.logger.record("rollout/train_rew_mean", safe_mean([ep_info["r"] for ep_info in self.train_info_buffer]))
-            self.logger.record("rollout/train_len_mean", safe_mean([ep_info["l"] for ep_info in self.train_info_buffer]))
+            self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.train_info_buffer]))
+            self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.train_info_buffer]))
 
             if len(self.train_info_buffer[0]["extra"]) >= 0:
                 for key in self.train_info_buffer[0]["extra"].keys():
                     self.logger.record(
-                        f"rollout/train_{key}_mean",
+                        f"rollout/ep_{key}_mean",
                         safe_mean(
                             [ep_info["extra"][key] for ep_info in self.train_info_buffer]
                         ),
                     )
-        self.logger.record("time/train_fps", fps)
+        self.logger.record("time/fps", fps)
         # self.logger.record("time/train_time_elapsed", int(time_elapsed), exclude="tensorboard")
-        self.logger.record("time/train_total_timesteps", self.train_num_timesteps, exclude="tensorboard")
-        if self.use_sde:
-            self.logger.record("train/std", (self.actor.get_std()).mean().item())
+        self.logger.record("time/total_timesteps", self.train_num_timesteps, exclude="tensorboard")
+        # if self.use_sde:
+        #     self.logger.record("train/std", (self.actor.get_std()).mean().item())
 
         # Pass the number of timesteps for tensorboard
         self.logger.dump(step=self.train_num_timesteps)
@@ -611,19 +611,19 @@ class BPTT(OffPolicyAlgorithm):
             if len(self.ep_info_buffer[0]["extra"]) >= 0:
                 for key in self.ep_info_buffer[0]["extra"].keys():
                     self.logger.record(
-                        f"rollout/ep_{key}_mean",
+                        f"rollout/eval_{key}_mean",
                         safe_mean(
                             [ep_info["extra"][key] for ep_info in self.ep_info_buffer]
                         ),
                     )
-        self.logger.record("time/fps", fps)
-        self.logger.record("time/time_elapsed", int(time_elapsed), exclude="tensorboard")
-        self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
-        if self.use_sde:
-            self.logger.record("train/std", (self.actor.get_std()).mean().item())
+        # self.logger.record("time/fps", fps)
+        # self.logger.record("time/time_elapsed", int(time_elapsed), exclude="tensorboard")
+        # self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
+        # if self.use_sde:
+            # self.logger.record("train/std", (self.actor.get_std()).mean().item())
 
         if len(self.ep_success_buffer) > 0:
-            self.logger.record("rollout/success_rate", safe_mean(self.ep_success_buffer))
+            self.logger.record("rollout/eval_success_rate", safe_mean(self.ep_success_buffer))
         # Pass the number of timesteps for tensorboard
         self.logger.dump(step=self.num_timesteps)
 

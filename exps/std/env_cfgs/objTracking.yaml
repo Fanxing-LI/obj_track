@@ -1,6 +1,6 @@
 env:
-  num_scene: 2
-  num_agent_per_scene: 128
+  num_scene: 16
+  num_agent_per_scene: 8
   max_episode_steps: 512
   sensor_kwargs:
     - sensor_type: DEPTH
@@ -23,9 +23,8 @@ env:
         - 0.0
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box10_wall_empty
-#    path: VisFly/datasets/visfly-beta/configs/scenes/garage_empty
     obj_settings:
-      path: mix
+      path: cubic
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
@@ -46,12 +45,12 @@ env:
   tensor_output: True
 
 eval_env:
+  num_scene: 2
   num_agent_per_scene: 2
   scene_kwargs:
-#    path: VisFly/datasets/visfly-beta/configs/scenes/garage_empty
     path: VisFly/datasets/visfly-beta/configs/scenes/box10_wall_empty
     obj_settings:
-      path: mix
+      path: cubic
     render_settings:
       mode: fix
       view: custom

@@ -114,8 +114,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         local_targets = orientation.inv_rotate(rela_tar.T).T
 
         state = th.hstack([
-            # local_targets / self.max_sense_radius,
-            self.box_center,
+            local_targets / self.max_sense_radius,
+            # self.box_center,
             self.orientation,
             self.velocity / 10,
             self.angular_velocity / 10,
@@ -126,7 +126,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         obs = TensorDict({
             "state": state,
-            "depth": th.as_tensor(self.sensor_obs["depth"]).clamp_min(0.2),
+            "depth": 1/th.as_tensor(self.sensor_obs["depth"]).clamp(0.2, 10),
             "semantic": th.as_tensor(self.sensor_obs["semantic"].astype(np.float32)),
         })
 
