@@ -23,7 +23,7 @@ algorithm:
         layer: [512, 512]
         bn: True
     actor:
-      dist: tanh_normal
+      dist: normal
       net_arch:
         layer: [512, 512]
         bn: True

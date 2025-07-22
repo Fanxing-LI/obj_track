@@ -83,7 +83,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.box_center = th.ones((self.num_envs, 3), dtype=th.float32, device=self.device) * 0.5
         # self.update_target()
         # self.observation_space["state"] = spaces.Box(
-        #     shape=(10,), low=-th.inf, high=th.inf, dtype=np.float32)
+        #     shape=(16,), low=-th.inf, high=th.inf, dtype=np.float32)
         test = 1
 
 
@@ -94,6 +94,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
                                  self.height * th.sin(self.radius_spd * self.t) + self.center[2]
                                  ]).T
         self.target = th.stack([p[0] for p in self.envs.dynamic_object_position])
+        self.target_v = th.stack([v[0] for v in self.envs.dynamic_object_velocity])
         h, w = self.sensor_obs["semantic"].shape[-2:]
         box_center_cache = get_batch_mask_centers_torch(th.tensor(self.sensor_obs["semantic"] == 5).squeeze(dim=1))
         for i, center in enumerate(box_center_cache):
@@ -112,9 +113,12 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         rela_tar = self.target - self.position
         orientation = self.envs.dynamics._orientation.clone()
         local_targets = orientation.inv_rotate(rela_tar.T).T
+        rela_v = self.target_v - self.velocity
+        local_targets_v = orientation.inv_rotate(rela_v.T).T
 
         state = th.hstack([
             local_targets / self.max_sense_radius,
+            # local_targets_v / 10,
             # self.box_center,
             self.orientation,
             self.velocity / 10,

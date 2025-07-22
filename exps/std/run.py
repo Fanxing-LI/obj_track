@@ -50,37 +50,27 @@ save_folder = os.path.dirname(os.path.abspath(sys.argv[0])) + f"/saved/{args.env
 config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/alg_cfgs/{args.env}/{args.algorithm}.yaml')
 env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{args.env}.yaml')
 
-train_env = env_alias[args.env](
+env = env_alias[args.env](
     **env_config["env"]
 )
 
 if not args.train:
     env_config["eval_env"]["visual"] = True
 
-env = env_alias[args.env](
-    **env_config["eval_env"]
-)
+# env = env_alias[args.env](
+#     **env_config["eval_env"]
+# )
 
 # if train mode, train the model
 if args.train:
 
-    if args.algorithm == "PPO":
-        model = alg_alias[args.algorithm](
-            env=env,
-            seed=args.seed,
-            comment=args.comment,
-            save_path=save_folder,
-            **config["algorithm"]
-        )
-    else:
-        model = alg_alias[args.algorithm](
-            env=env,
-            train_env=train_env,
-            seed=args.seed,
-            comment=args.comment,
-            save_path=save_folder,
-            **config["algorithm"]
-        )
+    model = alg_alias[args.algorithm](
+        env=env,
+        seed=args.seed,
+        comment=args.comment,
+        save_path=save_folder,
+        **config["algorithm"]
+    )
 
     if args.weight is not None:
         model.load(path=save_folder + args.weight, env=env)

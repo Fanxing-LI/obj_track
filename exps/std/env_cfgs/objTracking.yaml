@@ -1,6 +1,6 @@
 env:
-  num_scene: 16
-  num_agent_per_scene: 8
+  num_scene: 1
+  num_agent_per_scene: 128
   max_episode_steps: 512
   sensor_kwargs:
     - sensor_type: DEPTH
@@ -24,7 +24,7 @@ env:
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box10_wall_empty
     obj_settings:
-      path: cubic
+      path: mix
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
