@@ -222,14 +222,15 @@ class BPTT(OffPolicyAlgorithm):
                                     episode_done=cd(episode_done),
                                     value=cd(next_values),
                                     )
-            # self._store_transition(self.replay_buffer,
-            #                        buffer_action=cdu(actions),
-            #                        new_obs=cdu(obs),
-            #                        reward=cdu(reward),
-            #                        dones=cdu(done),
-            #                        infos=info,
-            #                        )
-            # self.check_whether_dump(log_interval=log_interval, dones=cdu(done))
+            self._store_transition(self.replay_buffer,
+                                   buffer_action=cdu(actions),
+                                   new_obs=cdu(obs),
+                                   reward=cdu(reward),
+                                   dones=cdu(done),
+                                   infos=info,
+                                   )
+            self._update_info_buffer(infos=info, dones=cdu(done))
+            self.check_whether_dump(log_interval=log_interval, dones=cdu(done))
 
         # update
         actor_loss = actor_loss.mean()  # average of value and accumlative rewards
@@ -293,6 +294,7 @@ class BPTT(OffPolicyAlgorithm):
                     self.train(
                         gradient_steps=self.gradient_steps,
                         batch_size=self.batch_size,
+                        log_interval=log_interval,
                     )
 
                     # Update the progress bar
@@ -306,8 +308,8 @@ class BPTT(OffPolicyAlgorithm):
 
         return self
 
-    def train(self, gradient_steps: int, batch_size: int = 64) -> None:
-        actor_gradient_steps = gradient_steps if self.actor_gradient_steps is None else gradient_steps
+    def train(self, gradient_steps: int, batch_size: int = 64, log_interval = None) -> None:
+        actor_gradient_steps = gradient_steps if self.actor_gradient_steps is None else self.actor_gradient_steps
         self.policy.set_training_mode(True)
 
         optimizers = [self.policy.actor.optimizer, self.policy.critic.optimizer]
@@ -315,7 +317,7 @@ class BPTT(OffPolicyAlgorithm):
         self._update_learning_rate(optimizers)
 
         for j in range(actor_gradient_steps):
-            self.train_actor()
+            self.train_actor(log_interval=log_interval)
             self.num_timesteps += self.num_envs * self.H
             pass
 
