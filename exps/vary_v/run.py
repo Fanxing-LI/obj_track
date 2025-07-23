@@ -23,18 +23,16 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run experiments', add_help=False)
     parser.add_argument('--comment', '-c', type=str, default="std")
     parser.add_argument("--train", "-t", type=int, default=1)
-    parser.add_argument("--algorithm", "-a", type=str, default="BPTT")
-    parser.add_argument("--env", "-e", type=str, default="hovering")
+    parser.add_argument("--algorithm", "-a", type=str, default="SHAC")
+    parser.add_argument("--env", "-e", type=str, default="objTracking")
     parser.add_argument("--seed", "-s", type=int, default=42)
     parser.add_argument("--weight", "-w", type=str, default=None, )
+    parser.add_argument("--velocity", "-v", type=str, default="0.5", )
     return parser
 
 
 env_alias = {
-    "hovering": HoverEnv,
-    "hoveringVisual": VisualHoverEnv,
     "objTracking": ObjectTrackingEnv,
-    "awareTracking": AwareTrackEnv2
 
 }
 
@@ -50,7 +48,7 @@ save_folder = os.path.dirname(os.path.abspath(sys.argv[0])) + f"/saved/{args.env
 
 config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/alg_cfgs/{args.env}/{args.algorithm}.yaml')
 env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{args.env}.yaml')
-
+env_config["eval_env"]
 if not args.train:
     env_config["eval_env"]["visual"] = True
 

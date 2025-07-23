@@ -82,8 +82,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.radius = 2
         self.box_center = th.ones((self.num_envs, 3), dtype=th.float32, device=self.device) * 0.5
         # self.update_target()
-        # self.observation_space["state"] = spaces.Box(
-        #     shape=(16,), low=-th.inf, high=th.inf, dtype=np.float32)
+        self.observation_space["state"] = spaces.Box(
+            shape=(16,), low=-th.inf, high=th.inf, dtype=np.float32)
         test = 1
 
 
@@ -118,7 +118,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         state = th.hstack([
             local_targets / self.max_sense_radius,
-            # local_targets_v / 10,
+            local_targets_v / 10,
             # self.box_center,
             self.orientation,
             self.velocity / 10,
