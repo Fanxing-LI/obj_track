@@ -49,7 +49,7 @@ save_folder = os.path.dirname(os.path.abspath(sys.argv[0])) + f"/saved/{args.env
 config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/alg_cfgs/{args.env}/{args.algorithm}.yaml')
 env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{args.env}.yaml')
 env_config["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = args.velocity
-env_config["env"]["random_kwargs"]["state_generator"]["kwargs"][0]["position"]["half"] = [1.0,1.0,0.0]
+env_config["env"]["random_kwargs"]["state_generator"]["kwargs"][0]["position"]["half"] = [1.0,1.0,0.1]
 if not args.train:
     env_config["eval_env"]["visual"] = True
 

@@ -78,6 +78,7 @@ class BPTT(OffPolicyAlgorithm):
             replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
             actor_gradient_steps: Optional[int] = None,
             _init_setup_model: bool = True,
+            scene_freq: Optional[TrainFreq] = None,
     ):
         root = os.path.dirname(os.path.abspath(sys.argv[0]))
         self.save_path = f"{root}/saved" if save_path is None else save_path
@@ -102,6 +103,10 @@ class BPTT(OffPolicyAlgorithm):
 
         stats_window_size = stats_window_size if stats_window_size else self.num_envs
 
+        self.scene_freq = scene_freq if scene_freq is not None else TrainFreq(1, TrainFrequencyUnit.EPISODE)
+        if not isinstance(self.scene_freq, TrainFreq):
+            Warning(f"scene_freq should be a TrainFreq, got {self.scene_freq}, converting to TrainFreq(1000000, TrainFrequencyUnit.STEP)")
+            self.scene_freq = TrainFreq(1000000, TrainFrequencyUnit.STEP)
 
         super().__init__(
             policy=policy,
@@ -262,6 +267,20 @@ class BPTT(OffPolicyAlgorithm):
         self._logger.record("train/actor_loss", actor_loss.item())
         self._logger.record("train/critic_loss", critic_loss.item() if isinstance(critic_loss, th.Tensor) else critic_loss)
         self.logger.record("train/ent_coef_loss", (ent_coef_loss.item() if isinstance(ent_coef_loss, th.Tensor) else ent_coef_loss))
+
+    def check_and_reset_scene(self) -> None:
+        if not hasattr(self, "_pre_scene_fresh_step"):
+            self._pre_scene_fresh_step = 0
+        if self.scene_freq.unit == TrainFrequencyUnit.EPISODE:
+            if self._episode_num - self._pre_scene_fresh_step >= self.scene_freq.frequency:
+                print(f"Resetting scene at episode {self._episode_num}")
+                self.env.reset_scene()
+                self._pre_scene_fresh_step = self._episode_num
+        elif self.scene_freq.unit == TrainFrequencyUnit.STEP:
+            if self.num_timesteps - self._pre_scene_fresh_step >= self.scene_freq.frequency:
+                print(f"Resetting scene at step {self.num_timesteps}")
+                self.env.reset_scene()
+                self._pre_scene_fresh_step = self.num_timesteps
 
     def learn(
             self: SelfSAC,

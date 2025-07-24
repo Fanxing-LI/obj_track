@@ -46,6 +46,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
             target: Optional[th.Tensor] = None,
             max_episode_steps: int = 256,
             tensor_output: bool = False,
+            keep_dis=1.5
     ):
         # random_kwargs = {
         #     "state_generator":
@@ -85,7 +86,13 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.observation_space["state"] = spaces.Box(
             shape=(16,), low=-th.inf, high=th.inf, dtype=np.float32)
         test = 1
+        # self.update_target()
+        self.keep_dis = keep_dis
 
+    def reset(self, *args, **kwargs) -> Union[TensorDict, Tuple[TensorDict, Dict]]:
+        res = super().reset( *args, **kwargs)
+        self.update_target()
+        return res
 
     def update_target(self):
         self.target = self.center
@@ -118,8 +125,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         state = th.hstack([
             local_targets / self.max_sense_radius,
-            local_targets_v / 10,
             # self.box_center,
+            local_targets_v / 10,
             self.orientation,
             self.velocity / 10,
             self.angular_velocity / 10,
@@ -147,7 +154,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         aware_r = proj * 0.05
         pos_factor = -0.1 * 1 / 9
         pos_r = (self.position - self.target).norm(dim=1) * pos_factor
-        keep_pos_r = ((self.position - self.target).norm(dim=1) - 1.0).abs() * -0.02
+        keep_pos_r = ((self.position - self.target).norm(dim=1) - self.keep_dis).abs() * -0.02
         vel_r = (self.velocity - 0).norm(dim=1) * -0.002
         ang_vel_r = (self.angular_velocity - 0).norm(dim=1) * -0.002
         acc_r = (self.envs.acceleration - 0).norm(dim=1) * -0.001
