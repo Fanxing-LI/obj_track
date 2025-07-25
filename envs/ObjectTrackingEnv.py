@@ -144,7 +144,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         state = th.hstack([
             # local_targets / self.max_sense_radius,
             self.box_center,
-            local_targets_v / 10,
+            # local_targets_v / 10,
+            self.box_velocity,
             self.orientation,
             self.velocity / 10,
             self.angular_velocity / 10,
