@@ -175,7 +175,7 @@ class BPTT(OffPolicyAlgorithm):
             index += 1
             path = f"{self.save_path}/{self.name}_{self.comment}_{index}" if self.comment is not None \
                 else f"{self.save_path}/{self.name}_{index}"
-        self.policy_save_path = path
+        self.policy_save_path = path if path.endswith(".zip") else f"{path}.zip"
 
     def train_actor(self, log_interval: Optional[int] = None) -> None:
         # assert self.H >= 1, "horizon must be greater than 1"
@@ -356,7 +356,7 @@ class BPTT(OffPolicyAlgorithm):
             include: Optional[Iterable[str]] = None,
     ) -> None:
         path = self.policy_save_path if path is None else path
-        print(f"Saving model to {path}.zip")
+        print(f"Saving model to {path}")
         super().save(
             path,
             exclude=exclude,

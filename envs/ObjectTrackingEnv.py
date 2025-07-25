@@ -88,12 +88,26 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         test = 1
         # self.update_target()
         self.keep_dis = keep_dis
+        self.pre_box_center = th.zeros((self.num_envs, 3), dtype=th.float32, device=self.device)
+        self.pre_dis = th.zeros((self.num_envs,), dtype=th.float32, device=self.device)
+        self.smooth_factor = 0.5
 
     def reset(self, *args, **kwargs) -> Union[TensorDict, Tuple[TensorDict, Dict]]:
         res = super().reset( *args, **kwargs)
         self.update_target()
         return res
 
+    def _reset_attr(self, indices=None):
+        super()._reset_attr(indices)
+        indices = indices if indices is not None else th.arange(self.num_envs, device=self.device)
+        h, w = self.sensor_obs["semantic"].shape[-2:]
+        box_center_cache = get_batch_mask_centers_torch(th.tensor(self.sensor_obs["semantic"] == 5).squeeze(dim=1))
+        for i in indices:
+            center = box_center_cache[i]
+            if center is not None:
+                self.pre_box_center[i, 0] = center[0] / h-0.5
+                self.pre_box_center[i, 1] = center[1] / w-0.5
+                self.pre_box_center[i, 2] = th.tensor(self.sensor_obs["depth"][i, 0, int(center[1]), int(center[0])])  # Normalize depth
     def update_target(self):
         self.target = self.center
         self.target = th.stack([self.radius * th.cos(self.radius_spd * self.t) + self.center[0],
@@ -106,9 +120,13 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         box_center_cache = get_batch_mask_centers_torch(th.tensor(self.sensor_obs["semantic"] == 5).squeeze(dim=1))
         for i, center in enumerate(box_center_cache):
             if center is not None:
-                self.box_center[i, 0] = center[0]/h
-                self.box_center[i, 1] = center[1]/w
+                self.box_center[i, 0] = center[0]/h-0.5
+                self.box_center[i, 1] = center[1]/w-0.5
                 self.box_center[i, 2] = th.tensor(self.sensor_obs["depth"][i, 0, int(center[1]), int(center[0])]) # Normalize depth
+        self.box_center = self.box_center * self.smooth_factor + self.pre_box_center * (1 - self.smooth_factor)
+        self.box_velocity = (self.box_center - self.pre_box_center) / self.envs.dynamics.ctrl_dt
+        self.pre_box_center = self.box_center.clone()
+
             # else:
             #     self.box_center[i, :] = th.zeros(3, dtype=th.float32, device=self.device)
     def get_observation(
@@ -124,8 +142,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         local_targets_v = orientation.inv_rotate(rela_v.T).T
 
         state = th.hstack([
-            local_targets / self.max_sense_radius,
-            # self.box_center,
+            # local_targets / self.max_sense_radius,
+            self.box_center,
             local_targets_v / 10,
             self.orientation,
             self.velocity / 10,

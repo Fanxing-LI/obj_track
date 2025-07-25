@@ -68,7 +68,7 @@ if args.train:
     )
 
     if args.weight is not None:
-        model.load(path=save_folder + args.weight, env=env)
+        model.load(path=(save_folder + args.weight).replace("vary_v", "std"), env=env)
 
     model.learn(**config["learn"])
     model.save()
@@ -77,16 +77,16 @@ else:
     eval_env = env_alias[args.env](
         **env_config["eval_env"]
     )
-    model = alg_alias[args.algorithm].load(save_folder + args.weight, env=eval_env)
+    model = alg_alias[args.algorithm].load((save_folder + args.weight).replace("vary_v","std"), env=eval_env)
     from test import Test as tracking_test
 
-    if args.weight is not None:
-        model.load(path=save_folder + args.weight, env=eval_env)
+    # if args.weight is not None:
+    #     model.load(path=(save_folder + args.weight).replace("vary_v","std"), env=eval_env)
 
     test_handle = tracking_test(
         model=model,
         save_path=save_folder + "/test",
-        name=args.weight
+        name=args.weight+"_"+args.velocity
     )
     test_handle.test(**config["test"])
     # save state_all and obs_all together in one file name with velocity

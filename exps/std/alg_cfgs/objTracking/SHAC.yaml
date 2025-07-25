@@ -5,7 +5,7 @@ algorithm:
     features_extractor_kwargs:
       net_arch:
         state:
-          layer: [192]
+          layer: [512]
 #        depth:
 #          channel: [ 32, 64, 128, 256 ]
 #          kernel_size: 4
@@ -19,11 +19,11 @@ algorithm:
       dist: mse
       n_critics: 2
       net_arch:
-        layer: [192, 96]
+        layer: [512, 256]
     actor:
       dist: normal
       net_arch:
-        layer: [192, 96]
+        layer: [512, 256]
 
     activation_fn: relu
     optimizer_class: adam
