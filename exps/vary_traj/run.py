@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("--env", "-e", type=str, default="objTracking")
     parser.add_argument("--seed", "-s", type=int, default=42)
     parser.add_argument("--weight", "-w", type=str, default=None, )
-    parser.add_argument("--velocity", "-v", type=str, default="0.5", )
+    parser.add_argument("--traj", "-tr", type=str, default="1", )
     return parser
 
 
@@ -48,7 +48,7 @@ save_folder = os.path.dirname(os.path.abspath(sys.argv[0])) + f"/saved/{args.env
 
 config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/alg_cfgs/{args.env}/{args.algorithm}.yaml')
 env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{args.env}.yaml')
-env_config["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = args.velocity
+env_config["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = args.traj
 env_config["env"]["random_kwargs"]["state_generator"]["kwargs"][0]["position"]["half"] = [1.0,1.0,0.1]
 if not args.train:
     env_config["eval_env"]["visual"] = True
@@ -77,11 +77,8 @@ else:
     eval_env = env_alias[args.env](
         **env_config["eval_env"]
     )
-    model = alg_alias[args.algorithm].load(save_folder + args.weight, env=eval_env)
+    model = alg_alias[args.algorithm].load((save_folder + args.weight).replace("vary_traj","std"), env=eval_env)
     from test import Test as tracking_test
-
-    if args.weight is not None:
-        model.load(path=save_folder + args.weight, env=eval_env)
 
     test_handle = tracking_test(
         model=model,
@@ -99,4 +96,4 @@ else:
         "reward_all": test_handle.reward_all,
         "action_all": test_handle.action_all,
         "info_all": test_handle.info_all
-    }, save_folder + f"/test/{args.velocity}.pth")
+    }, save_folder + f"/test/{args.traj}.pth")

@@ -85,6 +85,8 @@ class Test(TestBase):
         start_obj_pos = env.envs.dynamic_object_position[0].clone()
         self._img_names = [name for name in obs.keys() if (("color" in name) or ("depth" in name) or ("semantic" in name))]
         self.obs_all.append(obs)
+        self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
+
         self.state_all.append(env.state)
         self.info_all.append([{} for _ in range(env.num_envs)])
         self.t.append(env.t.clone())
@@ -115,6 +117,7 @@ class Test(TestBase):
             self.action_all.append(action)
             self.state_all.append(state)
             self.obs_all.append(obs)
+            self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
             self.info_all.append(copy.deepcopy(info))
             self.target_all.append(env.envs.dynamic_object_position)
             self.t.append(env.t.clone())

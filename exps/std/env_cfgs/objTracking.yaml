@@ -1,7 +1,7 @@
 env:
   num_scene: 32
   num_agent_per_scene: 8
-  max_episode_steps: 512
+  max_episode_steps: 2048
   sensor_kwargs:
     - sensor_type: DEPTH
       uuid: depth
@@ -37,7 +37,7 @@ env:
       kwargs:
         - position:
             mean: [ 5.0, 0.0, 1]
-            half: [ 1.3, 1.3, 0.2 ]
+            half: [ 3., 3., 0.2]
 
   visual: True
   device: cpu

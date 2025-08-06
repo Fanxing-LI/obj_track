@@ -82,7 +82,9 @@ class Test(TestBase):
         # done_all = th.full((env.num_envs,), False)
         obs = env.reset(is_test=True)
         self._img_names = [name for name in obs.keys() if (("color" in name) or ("depth" in name) or ("semantic" in name))]
+        start_obj_pos = env.envs.dynamic_object_position[0].clone()
         self.obs_all.append(obs)
+        self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
         self.state_all.append(env.state)
         self.info_all.append([{} for _ in range(env.num_envs)])
         self.t.append(env.t.clone())
@@ -93,7 +95,8 @@ class Test(TestBase):
         agent_index = [i for i in range(env.num_agent)]
         self.eq_r = []
         self.eq_l = []
-
+        roun = 0
+        prev_len = 0
         while True:
             with th.no_grad():
                 action = policy.predict(obs, deterministic=True)
@@ -113,12 +116,44 @@ class Test(TestBase):
             self.action_all.append(action)
             self.state_all.append(state)
             self.obs_all.append(obs)
+            self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
             self.info_all.append(copy.deepcopy(info))
             self.target_all.append((env.target - env.position).norm(dim=1))
             self.t.append(env.t.clone())
             if env.visual:
-                render_kwargs["points"] = th.atleast_2d(env.target)
-                render_image = cv2.cvtColor(env.render(**render_kwargs)[0], cv2.COLOR_RGBA2RGB)
+                # render_kwargs["points"] = th.atleast_2d(env.target)
+                imgs = env.render(**render_kwargs)
+                if is_sub_video:
+                # add subvideo at right lower of the image
+                    edge = 0.02
+                    shape_img = imgs[0].shape[:2]
+                    edge_int = int(min(shape_img) * edge)
+                    # sub_image = (obs["depth"] /10 * 255).to(th.uint8).cpu().numpy()  # (N, C, H, W)
+                    sub_image = (obs["color"]).to(th.uint8).cpu().numpy()  # (N, C, H, W)
+                    sub_image = np.transpose(sub_image, (0, 2, 3, 1))  # (N, H, W, C)
+                    # sub_image = np.tile(sub_image, (1, 1, 1, 3))  # (N, H, W, C)
+                    replace_dim = (shape_img[0] - sub_image.shape[1] - edge_int, shape_img[1])
+                    for i in range(len(obs["depth"])):
+                        sub_image_shape = obs["depth"][i].shape[1:3]
+                        replace_dim = (
+                            replace_dim[0],
+                            replace_dim[1] - sub_image_shape[1] - edge_int
+                        )
+                        imgs[0][replace_dim[0]:(replace_dim[0] + sub_image_shape[0]),
+                                replace_dim[1]:(replace_dim[1] + sub_image_shape[1]), :] = \
+                            cv2.cvtColor(sub_image[i], cv2.COLOR_RGB2RGBA)
+
+                #     for i in range(len(imgs)):
+                #         sub_image = np.tile(obs["depth"][0], (3,1,1))
+                #         sub_image = np.transpose(sub_image, (1, 2, 0))
+                #         sub_shape = obs["depth"][0].shape[1:]
+                #         replace_dim = ((shape_img[0] - sub_shape[0] - edge_int), shape_img[1] - sub_shape[1] - edge_int)
+                #         imgs[i, replace_dim[0]:(replace_dim[0]+sub_shape[0]), replace_dim[1]:(replace_dim[1]+sub_shape[1])] = sub_image
+
+                # img = np.vstack([np.hstack(imgs[:2]), np.hstack(imgs[2:])])
+                render_image = cv2.cvtColor(imgs[0], cv2.COLOR_RGBA2RGB)
+
+
                 self.render_image_all.append(render_image)
             # done_all[done] = True
 
@@ -129,6 +164,13 @@ class Test(TestBase):
                     agent_index.remove(i)
 
             if len(agent_index) == 0:
+                break
+
+            if (start_obj_pos - env.envs.dynamic_object_position[0]).norm()<=0.2 and len(self.reward_all) > 30+prev_len:
+                roun += 1
+                prev_len = len(self.reward_all)
+
+            if roun==2:
                 break
 
         mean_r = th.as_tensor(self.eq_r, dtype=th.float32).mean().item()

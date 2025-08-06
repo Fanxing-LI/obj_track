@@ -17,7 +17,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run experiments', add_help=False)
     parser.add_argument('--comment', '-c', type=str, default="std")
     parser.add_argument("--train", "-t", type=int, default=1)
-    parser.add_argument("--velocity", "-v", type=str, default="1.0", )
+    parser.add_argument("--traj", "-v", type=str, default="1", )
     return parser
 
 
@@ -31,7 +31,7 @@ def plot_with_error_band(ax, x, y, std):
     # 计算均值和标准差
 
     # 绘制均值线
-    ax.plot(x, y, label=label, linewidth=2)
+    ax.plot(x, y,  linewidth=2)
 
     # 绘制误差带（均值 ± 标准差）
     ax.fill_between(x,
@@ -42,13 +42,10 @@ def plot_with_error_band(ax, x, y, std):
 
 args = parse_args().parse_args()
 
-label = args.velocity
 
 # 获取目标位置数据（假设target_all包含位置信息）
-vs = ["0.5","1.0", "1.5"]
-vs = ["1.0"]
-vs = ["0.5", "1.0","1.5",  "2.0"]
-# vs = ["0.5"]
+vs = ["1.5","3.0", "4.5"]
+vs = ["3.0"]
 
 mean_oris = []
 std_oris = []
@@ -70,13 +67,13 @@ for i, v in enumerate(vs):
     mean_distances.append(mean_distance)
     std_ditances.append(std_distance)
     # 创建3D图形
-    plot_with_error_band(axes[0], t, mean_ori[:, 0]-0.5, std_ori[:, 0])
-    plot_with_error_band(axes[1], t, mean_ori[:, 1]-0.5, std_ori[:, 1])
-    plot_with_error_band(axes[2], t, mean_distance-3, std_distance)
+    plot_with_error_band(axes[0], t, mean_ori[:, 0], std_ori[:, 0])
+    plot_with_error_band(axes[1], t, mean_ori[:, 1], std_ori[:, 1])
+    plot_with_error_band(axes[2], t, mean_distance, std_distance)
 
 axes[0].set_title(f"Horizontal Error")
 axes[1].set_title(f"Vertical Error")
-axes[2].set_title(f"Distance Error(m)")
+axes[2].set_title(f"Distance (m)")
 
 axes[3].plot(target_positions[:,0,0], target_positions[:,0,1])
 axes[3].axis("equal")
@@ -86,15 +83,15 @@ current_ylim = axes[3].get_ylim()
 axes[3].set_ylim(current_ylim[0] - 0.1, current_ylim[1] + 0.1)
 
 
-axes[3].set_title(f"Target Trajectory")
-# axes[3].grid(False)
-# axes[3].set_xticks([])
-# axes[3].set_yticks([])
-# axes[3].set_xlabel('')
-# axes[3].set_ylabel('')
-# axes[3].axis("off")
-#
-# axes[3].patch.set_visible(False)
+
+axes[3].grid(False)
+axes[3].set_xticks([])
+axes[3].set_yticks([])
+axes[3].set_xlabel('')
+axes[3].set_ylabel('')
+axes[3].axis("off")
+
+axes[3].patch.set_visible(False)
 # hide grid and axes of axes3
 
 plt.show()

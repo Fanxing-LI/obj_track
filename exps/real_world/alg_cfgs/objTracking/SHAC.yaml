@@ -5,8 +5,7 @@ algorithm:
     features_extractor_kwargs:
       net_arch:
         state:
-          layer: [512]
-#          bn: True
+          layer: [192]
 #        depth:
 #          channel: [ 32, 64, 128, 256 ]
 #          kernel_size: 4
@@ -20,13 +19,11 @@ algorithm:
       dist: mse
       n_critics: 2
       net_arch:
-        layer: [512, 256]
-#        bn: True
+        layer: [192, 96]
     actor:
       dist: normal
       net_arch:
-        layer: [512, 256]
-#        bn: True
+        layer: [192, 96]
 
     activation_fn: relu
     optimizer_class: adam
@@ -34,7 +31,7 @@ algorithm:
       weight_decay: 0.00001
     share_features_extractor: False
 
-  learning_rate: 0.001
+  learning_rate: 0.002
   horizon: 96
   tau: 0.005
   gamma: 0.99
@@ -43,9 +40,7 @@ algorithm:
   train_freq: 48
   batch_size: 25600
   actor_gradient_steps: 1
-  buffer_size: 100
-  ent_coef: 0.0003
-  scene_freq: 3000000
+  buffer_size: 100000
 
 learn:
   total_timesteps: 30000000

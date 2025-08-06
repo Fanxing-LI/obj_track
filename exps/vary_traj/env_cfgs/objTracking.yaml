@@ -1,7 +1,7 @@
 env:
   num_scene: 32
   num_agent_per_scene: 8
-  max_episode_steps: 512
+  max_episode_steps: 2048
   sensor_kwargs:
     - sensor_type: DEPTH
       uuid: depth
@@ -45,7 +45,7 @@ env:
   tensor_output: True
 
 eval_env:
-  num_scene: 1
+  num_scene: 4
   num_agent_per_scene: 1
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty
