@@ -6,8 +6,8 @@ env:
     - sensor_type: DEPTH
       uuid: depth
       resolution:
-        - 128
-        - 128
+        - 480
+        - 640
       position:
         - 0
         - 0.2
@@ -15,8 +15,8 @@ env:
     - sensor_type: COLOR
       uuid: color
       resolution:
-        - 128
-        - 128
+        - 480
+        - 640
       position:
         - 0
         - 0.2
@@ -24,8 +24,8 @@ env:
     - sensor_type: SEMANTIC
       uuid: semantic
       resolution:
-        - 128
-        - 128
+        - 480
+        - 640
       position:
         - 0
         - 0.2

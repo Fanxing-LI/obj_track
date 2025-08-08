@@ -54,6 +54,7 @@ env:
   device: cpu
   requires_grad: True
   tensor_output: True
+  semantic_id: human
 
 eval_env:
   num_scene: 1

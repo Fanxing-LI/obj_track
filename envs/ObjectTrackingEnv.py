@@ -47,7 +47,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
     semantic_alias = {
         "stone": 5,
         "cup":8,
-        "human":7
+        "human":7,
+        "ball": 2
     }
     def __init__(
             self,
@@ -66,7 +67,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
             tensor_output: bool = False,
             keep_dis=3.0,
             box_noise=1.0,
-            semantic_id =8
+            semantic_id =2
     ):
         # random_kwargs = {
         #     "state_generator":
@@ -152,8 +153,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         box_center_cache = get_batch_mask_centers_torch(th.tensor(self.sensor_obs["semantic"] == self.semantic_id).squeeze(dim=1))
         for i, center in enumerate(box_center_cache):
             if center is not None:
-                self.box_center[i, 0] = (center[0] - self._intrinsic.cx) / w * 2
-                self.box_center[i, 1] = (center[1] - self._intrinsic.cy) / h * 2
+                self.box_center[i, 0] = (center[0] - self._intrinsic.cx) / self._intrinsic.fx * 2
+                self.box_center[i, 1] = (center[1] - self._intrinsic.cy) / self._intrinsic.fy * 2
                 self.box_center[i, 2] = th.tensor(self.sensor_obs["depth"][i, 0, int(center[1]), int(center[0])])
 
         self.box_velocity = (self.box_center - self.pre_box_center) / self.envs.dynamics.ctrl_dt
@@ -178,9 +179,15 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.local_targets = orientation.inv_rotate(rela_tar.T).T
         add_local_target_v = th.cross(self.angular_velocity-0, self.local_targets-0, dim=1)
         rela_v = self.target_v - self.velocity
-        self.local_targets_v = orientation.inv_rotate(rela_v.T).T
-        self.rebuild_local_targets_v = self.rebuild_local_targets_v #+ add_local_target_v
+        self.local_targets_v = orientation.inv_rotate(rela_v.T).T - add_local_target_v
+        self.rebuild_local_targets_v = self.rebuild_local_targets_v
         self.local_v = orientation.inv_rotate(self.velocity.T-0).T-0
+
+        self.head_targets = orientation.world_to_head(rela_tar.T).T
+        if not hasattr(self, "pre_head_targets"):
+            self.pre_head_targets = self.head_targets.clone()
+        self.head_targets_v = orientation.world_to_head((rela_v.T-0)).T
+        self.head_v = orientation.world_to_head((self.velocity.T-0)).T
         test = 1
 
     def get_observation(
@@ -190,15 +197,16 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.update_target()
 
         state = th.hstack([
-            self.local_targets+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * self.box_noise,
-            # self.rebuild_local_targets + th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.03]) * self.box_noise,
-            # self.box_center+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.03]) * self.box_noise,  # Add some noise to box center
-            self.local_targets_v+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 5 * self.box_noise,
-            # self.rebuild_local_targets_v + th.randn_like(self.box_center) * th.tensor([0.01, 0.01, 0.03]) * self.box_noise,
+            # self.local_targets+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * self.box_noise,
+            # self.rebuild_local_targets + th.randn_like(self.box_center) * th.tensor([0.02,0.02, 0.02]) * self.box_noise,
+            self.head_targets+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * self.box_noise,
+            # self.local_targets_v+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 5 * self.box_noise,
+            self.head_targets_v+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 5 * self.box_noise,
+            # self.rebuild_local_targets_v + th.randn_like(self.box_center) * th.tensor([0.02, 0.02, 0.02]) * 5 * self.box_noise,
             # self.box_velocity+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.03]) *10* self.box_noise,
             # self.box_velocity,
             self.orientation,
-            self.local_v / 10,
+            self.head_v / 10,
             self.angular_velocity / 10,
         ]).to(self.device)
         # return TensorDict({
