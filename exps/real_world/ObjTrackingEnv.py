@@ -8,7 +8,10 @@ from VisFly.utils.type import TensorDict
 from envs.ObjectTrackingEnv import ObjectTrackingEnv as OriObjectTrackingEnv
 from debug.kalman_filter import EKF9D
 import mediapipe as mp
-from common import extract_nearest_person, frame_img_to_inertial
+from common import extract_nearest_person, frame_img_to_inertial, get_chest_center_pixel_and_depth
+import time
+
+DEBUG = True
 
 
 class intrinsic:
@@ -34,35 +37,60 @@ class ObjectTrackingEnv(OriObjectTrackingEnv):
         # self.intrinsic = intrinsic(fx=320, fy=180, cx=320.8, cy=180).to(self.device)
         self.ekf = EKF9D(dt=self.envs.dynamics.ctrl_dt)
 
+        self.run_count = 0
+        self.pre_time = time.time()
+
     def update_target(self):
+        self.run_count += 1
+        if self.run_count % 100 == 0:
+            print("fps:", 100 / (time.time() - self.pre_time))
+            self.pre_time = time.time()
+            self.run_count = 0
+
         super().update_target()
         color = self.sensor_obs["color"][0].transpose(1, 2, 0).clip(max=255).astype(np.uint8)
-        img = cv2.cvtColor(color, cv2.COLOR_RGB2BGR)
         depth = self.sensor_obs["depth"][0].transpose(1, 2, 0).clip(max=10)
         result = extract_nearest_person(
             rgb_image=color,
             depth_image=depth,
             conf_threshold=0.5
         )
+
+        cv2.imshow("center", cv2.cvtColor(color, cv2.COLOR_RGB2BGR))
+        cv2.waitKey(1)
         if result:
-            color_of_target, depth_of_target, center = result
-            cv2.imshow("box", depth_of_target/10)
-            target_depth = depth[int(center[1]), int(center[0]), 0]
+            color_of_target, depth_of_target, xyxy, center = result
+            center2 = center
+            center_depth = depth[int(center[1]), int(center[0]), 0]
+            debug_center = get_chest_center_pixel_and_depth(color_of_target, depth_of_target, )
+            if debug_center:
+                center = (xyxy[0] + debug_center[0], xyxy[1] + debug_center[1])
+                center_depth = debug_center[2]
 
-            self.YOLO_estimate_pos = frame_img_to_inertial(center, self._intrinsic, target_depth)
+            if DEBUG:
+                # cv2.imshow("depth", depth / 10)
+                cv2.imshow("color", cv2.cvtColor(color_of_target, cv2.COLOR_RGB2BGR))
+                cv2.circle(color, (int(center2[0]), int(center2[1])), 6, (0, 255, 0), -1)
+                cv2.circle(color, (int(center[0]), int(center[1])), 6, (0, 0, 255), -1)
+                cv2.imshow("center", cv2.cvtColor(color, cv2.COLOR_RGB2BGR))
+                cv2.waitKey(1)
+
+            self.YOLO_local_pos = frame_img_to_inertial(center, self._intrinsic, center_depth)
             orientation = self.envs.dynamics._orientation.clone()
-            self.YOLO_head_pos = orientation.local_to_head(self.YOLO_estimate_pos.T).T
+            self.YOLO_head_pos = orientation.local_to_head(self.YOLO_local_pos.T).T
 
-            if not hasattr(self, "pre_YOLO_estimate_pos"):
-                self.pre_YOLO_estimate_pos = self.YOLO_estimate_pos.clone()
+            if not hasattr(self, "pre_YOLO_local_pos"):
+                self.pre_YOLO_local_pos = self.YOLO_local_pos.clone()
                 self.pre_YOLO_head_pos = self.YOLO_head_pos.clone()
-            self.YOLO_estimate_vel = (self.YOLO_estimate_pos - self.pre_YOLO_estimate_pos) / self.envs.dynamics.ctrl_dt
 
-            self.YOLO_head_vel = (self.YOLO_head_pos - self.pre_YOLO_head_pos) / self.envs.dynamics.ctrl_dt
+            self.YOLO_estimate_vel = (self.YOLO_local_pos - self.pre_YOLO_local_pos) / self.envs.dynamics.ctrl_dt
+
+            cali_head_vel = th.cross(self.angular_velocity * th.tensor([[0,0,1]]), self.YOLO_head_pos)
+
+            self.YOLO_head_vel = (self.YOLO_head_pos - self.pre_YOLO_head_pos) / self.envs.dynamics.ctrl_dt + cali_head_vel
             self.pre_YOLO_head_pos = self.YOLO_head_pos.clone()
 
-        cv2.imshow("depth",depth/10)
-        cv2.waitKey(1)
+
 
         self.ekf.predict()
         self.estimate_pos = self.ekf.x[0:3].T
@@ -90,7 +118,7 @@ class ObjectTrackingEnv(OriObjectTrackingEnv):
             indices=None
     ) -> Dict:
         self.update_target()
-
+        self.run_count += 1
         state = th.hstack([
             # self.local_targets,
             # self.local_targets_v,

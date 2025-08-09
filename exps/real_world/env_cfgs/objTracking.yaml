@@ -50,6 +50,10 @@ env:
           max_dis: 3.001
           min_dis: 2.999
           test: True
+#    noise_kwargs:
+#      color:
+#        model: GaussianNoiseModel
+
   visual: True
   device: cpu
   requires_grad: True
