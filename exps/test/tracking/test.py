@@ -67,24 +67,32 @@ class Test(TestBase):
             is_fig_save: bool = True,
             is_video_save: bool = True,
             render_kwargs={},
-
+            ROS_wrapper=None,
+            debug=False,
+            comment="",
     ):
         if is_fig_save:
             if not is_fig:
                 raise ValueError("is_fig_save must be True if is_fig is True")
-        if is_video_save:
-            if not is_video:
-                raise ValueError("is_video_save must be True if is_video is True")
+
         if policy is None:
             policy = self.model.policy
         env = self.env
-
+        if ROS_wrapper:
+            ROS_env = ROS_wrapper(env, comment=comment)
+            policy = ROS_env  # 修复：policy应该指向env实例，而不是ROS_wrapper类
+            
+        if debug:
+            return env
         # done_all = th.full((env.num_envs,), False)
         obs = env.reset(is_test=True)
+
         self._img_names = [name for name in obs.keys() if (("color" in name) or ("depth" in name) or ("semantic" in name))]
-        start_obj_pos = env.envs.dynamic_object_position[0].clone()
+        if env.envs.dynamic_object_position[0][0] is not None:
+            start_obj_pos = env.envs.dynamic_object_position[0].clone()
         self.obs_all.append(obs)
-        self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
+        if env.envs.dynamic_object_position[0][0] is not None:
+            self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
         self.state_all.append(env.state)
         self.info_all.append([{} for _ in range(env.num_envs)])
         self.t.append(env.t.clone())
@@ -100,6 +108,7 @@ class Test(TestBase):
         while True:
             with th.no_grad():
                 action = policy.predict(obs, deterministic=True)
+                # action = policy.predict(obs, deterministic=True)
                 if isinstance(action, tuple):
                     action = action[0]
                 # obs, reward, done, info = env.step(action, is_test=True)
@@ -107,6 +116,8 @@ class Test(TestBase):
                     obs, reward, done, info = env.step(action, is_test=True, latent_func=world.step)
                 else:
                     obs, reward, done, info = env.step(action, is_test=True)
+                if ROS_wrapper:
+                    ROS_env.publish_env_status()
                 # = env.get_observation(), env.reward, env.done, env.info
                 col_dis, is_col, col_pt = env.collision_dis, env.is_collision, env.collision_point
                 state = env.state
@@ -116,14 +127,15 @@ class Test(TestBase):
             self.action_all.append(action)
             self.state_all.append(state)
             self.obs_all.append(obs)
-            self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
+            if env.envs.dynamic_object_position[0][0] is not None:
+                self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
             self.info_all.append(copy.deepcopy(info))
             self.target_all.append((env.target - env.position).norm(dim=1))
             self.t.append(env.t.clone())
             if env.visual:
                 # render_kwargs["points"] = th.atleast_2d(env.target)
                 imgs = env.render(**render_kwargs)
-                if is_sub_video:
+                if is_sub_video and len(self._img_names) > 0:
                 # add subvideo at right lower of the image
                     edge = 0.02
                     shape_img = imgs[0].shape[:2]
@@ -143,16 +155,7 @@ class Test(TestBase):
                                 replace_dim[1]:(replace_dim[1] + sub_image_shape[1]), :] = \
                             cv2.cvtColor(sub_image[i], cv2.COLOR_RGB2RGBA)
 
-                #     for i in range(len(imgs)):
-                #         sub_image = np.tile(obs["depth"][0], (3,1,1))
-                #         sub_image = np.transpose(sub_image, (1, 2, 0))
-                #         sub_shape = obs["depth"][0].shape[1:]
-                #         replace_dim = ((shape_img[0] - sub_shape[0] - edge_int), shape_img[1] - sub_shape[1] - edge_int)
-                #         imgs[i, replace_dim[0]:(replace_dim[0]+sub_shape[0]), replace_dim[1]:(replace_dim[1]+sub_shape[1])] = sub_image
-
-                # img = np.vstack([np.hstack(imgs[:2]), np.hstack(imgs[2:])])
                 render_image = cv2.cvtColor(imgs[0], cv2.COLOR_RGBA2RGB)
-
 
                 self.render_image_all.append(render_image)
             # done_all[done] = True
@@ -165,17 +168,17 @@ class Test(TestBase):
 
             if len(agent_index) == 0:
                 break
-
-            if (start_obj_pos - env.envs.dynamic_object_position[0]).norm()<=0.2 and len(self.reward_all) > 30+prev_len:
-                roun += 1
-                prev_len = len(self.reward_all)
+            if env.envs.dynamic_object_position[0][0] is not None:
+                if (start_obj_pos - env.envs.dynamic_object_position[0]).norm()<=0.2 and len(self.reward_all) > 30+prev_len:
+                    roun += 1
+                    prev_len = len(self.reward_all)
 
             if roun==2:
                 break
 
         mean_r = th.as_tensor(self.eq_r, dtype=th.float32).mean().item()
         mean_l = th.as_tensor(self.eq_l, dtype=th.float32).mean().item()
-        # print(f"Average Rewards:{mean_r}, Average Length:{mean_l}")
+        print(f"Average Rewards:{mean_r}, Average Length:{mean_l}")
 
         if is_fig:
             figs = self.draw()
@@ -186,8 +189,8 @@ class Test(TestBase):
             figs = []
         if is_video:
             self.play(is_sub_video=is_sub_video)
-            if is_video_save:
-                self.save_video()
+        if is_video_save:
+            self.save_video()
 
         render_video = th.as_tensor(np.stack(self.render_image_all, axis=0)).unsqueeze(0) if len(self.render_image_all) > 0 else None
         return figs, render_video, mean_r, mean_l

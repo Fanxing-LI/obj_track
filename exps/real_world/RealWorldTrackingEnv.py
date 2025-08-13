@@ -87,9 +87,8 @@ class ObjectTrackingEnv(OriObjectTrackingEnv):
 
             cali_head_vel = th.cross(self.angular_velocity * th.tensor([[0,0,1]]), self.YOLO_head_pos)
 
-            self.YOLO_head_vel = (self.YOLO_head_pos - self.pre_YOLO_head_pos) / self.envs.dynamics.ctrl_dt + cali_head_vel
+            self.YOLO_head_vel = (self.YOLO_head_pos - self.pre_YOLO_head_pos) / self.envs.dynamics.ctrl_dt #+ cali_head_vel
             self.pre_YOLO_head_pos = self.YOLO_head_pos.clone()
-
 
 
         self.ekf.predict()

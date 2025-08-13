@@ -35,7 +35,7 @@
       "velocity": {
         "class": "Uniform",
         "kwargs": {
-          "mean": 2.0,
+          "mean": 1.0,
           "half": 0.0
         }
       },

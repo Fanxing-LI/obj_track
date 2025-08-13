@@ -65,7 +65,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
             target: Optional[th.Tensor] = None,
             max_episode_steps: int = 256,
             tensor_output: bool = False,
-            keep_dis=3.0,
+            keep_dis=1.5,
             box_noise=1.0,
             semantic_id =2
     ):
@@ -176,8 +176,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         if not hasattr(self, "pre_head_targets"):
             self.pre_head_targets = self.head_targets.clone()
         self.head_targets_v = orientation.world_to_head((rela_v.T-0)).T
-        cali_head_vel = th.cross(self.angular_velocity * th.tensor([[0, 0, 1]]), self.head_targets)
-        self.head_targets_v = self.head_targets_v - cali_head_vel
+        # cali_head_vel = th.cross(self.angular_velocity * th.tensor([[0, 0, 1]]), self.head_targets)
+        # self.head_targets_v = self.head_targets_v #- cali_head_vel
         self.head_v = orientation.world_to_head((self.velocity.T-0)).T
         test = 1
 

@@ -1,4 +1,5 @@
 import os, sys
+
 sys.path.append(os.getcwd())
 from VisFly.envs.HoverEnv import HoverEnv
 from envs.ObjectTrackingEnv import ObjectTrackingEnv
@@ -14,6 +15,8 @@ import os
 import argparse
 from VisFly.utils.common import load_yaml_config
 import json
+from exps.test.tracking.test import Test as tracking_test
+
 
 # th.autograd.set_detect_anomaly(True)
 
@@ -41,63 +44,92 @@ alg_alias = {
     "SHAC": SHAC,
 }
 
-args = parse_args().parse_args()
 
-script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-save_folder = script_dir + f"/saved/{args.env}/"
-
-config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/alg_cfgs/{args.env}/{args.algorithm}.yaml')
-env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{args.env}.yaml')
-env_config["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = args.traj
-
-def change_v_in_json(json_file):
+def change_v_in_json(json_file, vel):
     path = os.path.dirname(os.path.abspath(__file__)) + f'/configs/obj/{json_file}/cubic.json'
     with open(path, 'r') as file:
         data = json.load(file)
-        data["objects"][0]["velocity"]["kwargs"]["mean"] = args.velocity
+        data["objects"][0]["velocity"]["kwargs"]["mean"] = vel
 
     with open(path, 'w') as file:
         json.dump(data, file, indent=2)
 
-change_v_in_json(args.traj)
 
-env_config["env"]["random_kwargs"]["state_generator"]["kwargs"][0]["position"]["half"] = [1.0,1.0,0.1]
-if not args.train:
-    env_config["eval_env"]["visual"] = True
+def get_env(env, traj, v, is_train=False):
+    # script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    # save_folder = script_dir + f"/saved/{env}/"
 
-# if train mode, train the model
-if args.train:
-    env = env_alias[args.env](
-        **env_config["env"]
-    )
+    env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{env}.yaml')
+    env_config["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = traj
 
-    model = alg_alias[args.algorithm](
-        env=env,
-        seed=args.seed,
-        comment=args.comment,
-        save_path=save_folder,
-        **config["algorithm"]
-    )
+    change_v_in_json(traj, v)
 
-    if args.weight is not None:
-        model.load(path=save_folder + args.weight, env=env)
+    env_config["env"]["random_kwargs"]["state_generator"]["kwargs"][0]["position"]["half"] = [1.0, 1.0, 0.1]
+    if not is_train:
+        env_config["eval_env"]["visual"] = True
 
-    model.learn(**config["learn"])
-    model.save()
+    if is_train:
+        env = env_alias[env](
+            **env_config["env"]
+        )
+    else:
+        env = env_alias[env](
+            **env_config["eval_env"]
+        )
 
-else:
-    eval_env = env_alias[args.env](
+    return env
+
+
+def main(
+        traj,
+        velocity,
+        env="objTracking",
+        algorithm="BPTT",
+        weight=None,
+        ROS_wrapper=None,
+        comment="",
+        debug=False,
+):
+    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    save_folder = script_dir + f"/saved/{env}/"
+    if ROS_wrapper:
+        save_folder = f"/home/lfx-desktop/files/obj_track/exps/vary_v/saved/{env}"
+    config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/alg_cfgs/{env}/{algorithm}.yaml')
+    env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{env}.yaml')
+    env_config["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = \
+        '/home/lfx-desktop/files/obj_track/exps/vary_v/configs/obj/' + traj
+
+    change_v_in_json(traj, velocity)
+
+    eval_env = env_alias[env](
         **env_config["eval_env"]
     )
-    model = alg_alias[args.algorithm].load((save_folder + args.weight).replace("vary_v","std"), env=eval_env)
-    from exps.test.tracking.test import Test as tracking_test
+
+    if weight:
+        model = alg_alias[algorithm].load((save_folder + weight).replace("vary_v", "std"), env=eval_env)
+    else:
+        model = alg_alias[algorithm](
+            env=eval_env,
+            seed=42,
+            comment=comment,
+            save_path=save_folder,
+            **config["algorithm"]
+        )
     # from test import Test as tracking_test
     test_handle = tracking_test(
         model=model,
         save_path=save_folder + "/test",
-        name=args.weight
+        name=weight if weight else str.join("_", [str(velocity), traj, comment],
+        )
     )
-    test_handle.test(**config["test"])
+    if ROS_wrapper:
+        config["test"]["is_video"] = False
+        # config["test"]["is_video_save"] = False
+        config["test"]["is_fig_save"] = False
+        config["test"]["is_fig"] = False
+    r = test_handle.test(ROS_wrapper=ROS_wrapper, debug=debug, comment=comment, **config["test"])
+    if debug:
+        return r
     # save state_all and obs_all together in one file name with velocity
     th.save({
         "state_all": test_handle.state_all,
@@ -107,5 +139,15 @@ else:
         "collision_all": test_handle.collision_all,
         "reward_all": test_handle.reward_all,
         "action_all": test_handle.action_all,
-        "info_all": test_handle.info_all
-    }, save_folder + f"/test/{args.traj}_{args.velocity}.pth")
+        # "info_all": test_handle.info_all
+    },
+        save_folder + f"/test/{traj}_{velocity}.pth"
+    )
+    print("======================================================================")
+    print(f"Test results saved to {save_folder}/test/{traj}_{velocity}_{comment}.pth")
+    print("======================================================================")
+
+
+if __name__ == "__main__":
+    args = parse_args().parse_args()
+    main(velocity=args.velocity, traj=args.traj, algorithm=args.algorithm, env=args.env, weight=args.weight)

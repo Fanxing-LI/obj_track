@@ -1,7 +1,8 @@
 import os, sys
 
 sys.path.append(os.getcwd())
-from VisFly.envs.HoverEnv import HoverEnv
+# from VisFly.envs.HoverEnv import HoverEnv2 as HoverEnv
+from envs.HoverEnv import HoverEnv
 from envs.ObjectTrackingEnv import ObjectTrackingEnv
 from envs.VisualHoverEnv import VisualHoverEnv
 # from envs.TrackingEnv import AwareTrackEnv
@@ -71,7 +72,6 @@ if args.train:
     if args.weight is not None:
         # model = model.load(path=save_folder + args.weight, env=env)
         model.load_parameters(save_folder + args.weight)
-
         model.create_save_path(args.comment)
 
     model.learn(**config["learn"])
