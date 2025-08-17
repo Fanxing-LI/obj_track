@@ -137,19 +137,24 @@ class Test(TestBase):
                 imgs = env.render(**render_kwargs)
                 if is_sub_video and len(self._img_names) > 0:
                 # add subvideo at right lower of the image
-                    edge = 0.02
+                    edge = 0.01
                     shape_img = imgs[0].shape[:2]
                     edge_int = int(min(shape_img) * edge)
                     # sub_image = (obs["depth"] /10 * 255).to(th.uint8).cpu().numpy()  # (N, C, H, W)
                     sub_image = (obs["color"]).to(th.uint8).cpu().numpy()  # (N, C, H, W)
                     sub_image = np.transpose(sub_image, (0, 2, 3, 1))  # (N, H, W, C)
                     # sub_image = np.tile(sub_image, (1, 1, 1, 3))  # (N, H, W, C)
-                    replace_dim = (shape_img[0] - sub_image.shape[1] - edge_int, shape_img[1])
+                    # replace_dim = (shape_img[0] - sub_image.shape[1] - edge_int, shape_img[1])
+                    replace_dim = (shape_img[0], shape_img[1] - sub_image.shape[1] - edge_int)
                     for i in range(len(obs["depth"])):
                         sub_image_shape = obs["depth"][i].shape[1:3]
+                        # replace_dim = (
+                        #     replace_dim[0],
+                        #     replace_dim[1] - sub_image_shape[1] - edge_int
+                        # )
                         replace_dim = (
-                            replace_dim[0],
-                            replace_dim[1] - sub_image_shape[1] - edge_int
+                            replace_dim[0] - sub_image_shape[1] - edge_int,
+                            replace_dim[1]
                         )
                         imgs[0][replace_dim[0]:(replace_dim[0] + sub_image_shape[0]),
                                 replace_dim[1]:(replace_dim[1] + sub_image_shape[1]), :] = \
@@ -173,7 +178,7 @@ class Test(TestBase):
                     roun += 1
                     prev_len = len(self.reward_all)
 
-            if roun==2:
+            if roun==1:
                 break
 
         mean_r = th.as_tensor(self.eq_r, dtype=th.float32).mean().item()

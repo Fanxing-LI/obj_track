@@ -215,10 +215,10 @@ datasets/*
 # 忽略整个 catkin_ws 目录，但保留 catkin_ws/src/visfly/scripts/
 catkin_ws/*
 !catkin_ws/src/
-catkin_ws/src/*
-!catkin_ws/src/visfly/
-catkin_ws/src/visfly/*
-!catkin_ws/src/visfly/scripts/
+#catkin_ws/src/*
+#!catkin_ws/src/visfly/
+#catkin_ws/src/visfly/*
+#!catkin_ws/src/visfly/scripts/
 !catkin_ws/src/visfly/launch/
 # 忽略所有 Python 缓存文件
 *.pyc

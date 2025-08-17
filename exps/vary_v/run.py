@@ -87,7 +87,7 @@ def main(
         algorithm="BPTT",
         weight=None,
         ROS_wrapper=None,
-        comment="",
+        comment="BPTT",
         debug=False,
 ):
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -98,6 +98,12 @@ def main(
     env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{env}.yaml')
     env_config["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = \
         '/home/lfx-desktop/files/obj_track/exps/vary_v/configs/obj/' + traj
+
+    # Modify action type for elastic mode
+    if comment == "elastic":
+        env_config["eval_env"]["dynamics_kwargs"] = env_config["eval_env"].get("dynamics_kwargs", {})
+        env_config["eval_env"]["dynamics_kwargs"]["action_type"] = "position"
+        print(f"[INFO] Modified action_type to 'position' for elastic mode")
 
     change_v_in_json(traj, velocity)
 
@@ -131,6 +137,12 @@ def main(
     if debug:
         return r
     # save state_all and obs_all together in one file name with velocity
+
+    for i in test_handle.obs_all:
+        # remove all the image obs
+        for key in list(i.keys()):
+            if "color" in key or "depth" in key or "semantic" in key:
+                del i[key]
     th.save({
         "state_all": test_handle.state_all,
         "obs_all": test_handle.obs_all,

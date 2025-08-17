@@ -12,10 +12,10 @@ env:
             mean: [ 15.0, 0.0, 1 ]
             half: [ 10., 10., 0.2 ]
   dynamics_kwargs:
-    #    dt: 0.02
-    #    ctrl_dt: 0.02
-    #    comm_delay: False
-    #    ctrl_delay: False
+    dt: 0.01
+    ctrl_dt: 0.03
+    comm_delay: 0.06
+    ctrl_delay: True
     action_type: "bodyrate"
   visual: False
   device: cpu

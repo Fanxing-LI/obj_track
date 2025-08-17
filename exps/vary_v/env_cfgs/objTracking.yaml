@@ -68,6 +68,6 @@ eval_env:
       mode: fix
       view: custom
       resolution: [1080,1920]
-      position: [[15., 1, 8.5], [15, 0, 1.5]]
+      position: [[13.5, 1, 10], [13.5, 0, 1.5]]
       trajectory: False
       velocity: True
