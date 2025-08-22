@@ -152,76 +152,83 @@ class ROSEnvWrapper:
         Reset the environment and clear action data.
         This method can be called to reset the environment state.
         """
+        print("---------------------------debug:enter node reset")
+
         r=self.envs.reset(*args, **kwargs)
         # publish initial environment status
+        print("---------------------------debug:leave node reset and finish env reset")
         self.publish_env_status()
+        print("---------------------------debug:leave node reset")
         return r
 
     def predict(self, obs, deterministic=True):
         """
         publish current action
         """
+        # 先检查一次是否已有数据
         with self.action_lock:
-            if self.comment == "elastic":
-                # Extract position and yaw from Elastic Tracker commands
-                action_tensor = torch.zeros(self.num_agent, 4)  # [x, y, z, yaw]
-                for i in range(self.num_agent):
-                    if self.action_data[i] is not None:
-                        action_tensor[i, :3] = torch.tensor(self.action_data[i]['position'])  # x, y, z
-                        action_tensor[i, 3] = self.action_data[i]['yaw']  # yaw
-                self.action_data = [None] * self.num_agent  # Clear action data after use
-                return action_tensor
-            elif self.comment == "BPTT":
-                # Extract z_acc and bodyrate from action_data
-                action_tensor = torch.zeros(self.num_agent, 4)
-                for i in range(self.num_agent):
-                    if self.action_data[i] is not None:
-                        action_tensor[i, 0] = self.action_data[i]['z_acc']
-                        action_tensor[i, 1:4] = torch.tensor(self.action_data[i]['bodyrate'])
-                self.action_data = [None] * self.num_agent  # Clear action data after use
-                return action_tensor
-            elif self.comment == "fsc":
-                # Extract body rates and thrust from FSC control commands
-                action_tensor = torch.zeros(self.num_agent, 4)  # [z_acc, roll_rate, pitch_rate, yaw_rate]
-                for i in range(self.num_agent):
-                    if self.action_data[i] is not None:
-                        action_tensor[i, 0] = self.action_data[i]['z_acc']  # thrust
-                        action_tensor[i, 1:4] = torch.tensor(self.action_data[i]['bodyrate'])  # [roll, pitch, yaw rates]
-                self.action_data = [None] * self.num_agent  # Clear action data after use
-                return action_tensor
+            all_actions_available = all(self.action_data[i] is not None for i in range(self.num_agent))
 
-    def _make_elastic_callback(self, agent_id):
-        def callback(msg):
-            print(f"Received PositionCommand for agent {agent_id}: {msg}")
-            with self.action_lock:
-                # Extract position and yaw from Elastic Tracker PositionCommand
-                self.action_data[agent_id] = {
-                    'position': [msg.position.x, msg.position.y, msg.position.z],
-                    'yaw': msg.yaw,
-                    'velocity': [msg.velocity.x, msg.velocity.y, msg.velocity.z],
-                    'acceleration': [msg.acceleration.x, msg.acceleration.y, msg.acceleration.z]
-                }
-        return callback
+        publish_count = 0
+        max_publish_count = 10
+        # print("===================================debug")
+        # print("===================================predicting")
+        if not all_actions_available:
+            print(publish_count)
+            while True:
+                rospy.sleep(0.1)
+                # 在等待期间持续发布当前状态
+                if publish_count < max_publish_count:
+                    self.publish_env_status()
+                    publish_count += 1
+                else:
+                    raise RuntimeError("Maximum publish count reached without receiving all actions")
 
-    def _make_fsc_callback(self, agent_id):
-        def callback(msg):
-            with self.action_lock:
-                # Extract body rates and thrust from RateThrust message and normalize
-                # FSC typically uses body rates in rad/s, normalize to [-1, 1]
-                # Thrust is in m/s^2, normalize around hover thrust (9.81)
-                max_body_rate = 2.0  # rad/s
-                hover_thrust = 9.81  # m/s^2
-                max_thrust_deviation = 5.0  # m/s^2
-                
-                self.action_data[agent_id] = {
-                    'z_acc': np.clip((msg.thrust.z - hover_thrust) / max_thrust_deviation, -1.0, 1.0),
-                    'bodyrate': [
-                        np.clip(msg.angular_rates.x / max_body_rate, -1.0, 1.0),
-                        np.clip(msg.angular_rates.y / max_body_rate, -1.0, 1.0), 
-                        np.clip(msg.angular_rates.z / max_body_rate, -1.0, 1.0)
-                    ]
-                }
-        return callback
+                rospy.loginfo("Waiting for action data...")
+
+                # 重新检查是否所有agent都有有效的action数据（不持有锁）
+                with self.action_lock:
+                    all_actions_available = all(self.action_data[i] is not None for i in range(self.num_agent))
+                    # print(self.action_data)
+
+                if all_actions_available:
+                    break
+            rospy.loginfo("All action data received, proceeding...")
+
+        return self.subscribe_action()
+
+    # def _make_elastic_callback(self, agent_id):
+    #     def callback(msg):
+    #         print(f"Received PositionCommand for agent {agent_id}: {msg}")
+    #         with self.action_lock:
+    #             # Extract position and yaw from Elastic Tracker PositionCommand
+    #             self.action_data[agent_id] = {
+    #                 'position': [msg.position.x, msg.position.y, msg.position.z],
+    #                 'yaw': msg.yaw,
+    #                 'velocity': [msg.velocity.x, msg.velocity.y, msg.velocity.z],
+    #                 'acceleration': [msg.acceleration.x, msg.acceleration.y, msg.acceleration.z]
+    #             }
+    #     return callback
+    #
+    # def _make_fsc_callback(self, agent_id):
+    #     def callback(msg):
+    #         with self.action_lock:
+    #             # Extract body rates and thrust from RateThrust message and normalize
+    #             # FSC typically uses body rates in rad/s, normalize to [-1, 1]
+    #             # Thrust is in m/s^2, normalize around hover thrust (9.81)
+    #             max_body_rate = 2.0  # rad/s
+    #             hover_thrust = 9.81  # m/s^2
+    #             max_thrust_deviation = 5.0  # m/s^2
+    #
+    #             self.action_data[agent_id] = {
+    #                 'z_acc': np.clip((msg.thrust.z - hover_thrust) / max_thrust_deviation, -1.0, 1.0),
+    #                 'bodyrate': [
+    #                     np.clip(msg.angular_rates.x / max_body_rate, -1.0, 1.0),
+    #                     np.clip(msg.angular_rates.y / max_body_rate, -1.0, 1.0),
+    #                     np.clip(msg.angular_rates.z / max_body_rate, -1.0, 1.0)
+    #                 ]
+    #             }
+    #     return callback
 
     def _auto_trigger_planning(self, event):
         """Auto-trigger Elastic Tracker planning (only for elastic mode)"""
@@ -270,6 +277,8 @@ class ROSEnvWrapper:
                     if self.action_data[i] is not None:
                         action_tensor[i, :3] = torch.tensor(self.action_data[i]['position'])
                         action_tensor[i, 3] = self.action_data[i]['yaw']  # yaw的dim是0而不是3
+                # 清空action_data
+                self.action_data = [None] * self.num_agent
                 return action_tensor
             elif self.comment == "BPTT":
                 # 提取z_acc和bodyrate组成n*4的tensor
@@ -278,24 +287,30 @@ class ROSEnvWrapper:
                     if self.action_data[i] is not None:
                         action_tensor[i, 0] = self.action_data[i]['z_acc']
                         action_tensor[i, 1:4] = torch.tensor(self.action_data[i]['bodyrate'])
-                return action_tensor
+                # print("===================================predicting")
+                self.action_data = [None] * self.num_agent
             elif self.comment == "fsc":
                 # 暂时返回zeros
                 raise NotImplementedError
 
-    def publish_env_status(self):
+        return action_tensor
+
+    def publish_env_status(self, is_count=True):
         """
         发布所有环境信息
         """
         self.publish_drone_state()
         self.publish_target_odom()
         self.publish_pointcloud()
+        # print(f"debug pushlished environment status.{self._count}")
         # wait 0.03 s
-        rospy.sleep(0.03)
-        self._count += 1
-        if self._count % 10 == 0:
-            rospy.loginfo(f"Published environment status at count {self._count}")
-        # print("Published environment status.")
+        if is_count:
+            rospy.sleep(0.03)
+            self._count += 1
+            if self._count % 10 == 0:
+                rospy.loginfo(f"Published environment status at count {self._count}")
+            # print("Published environment status.")
+        # print("debug pushlished environment status. leaving")
 
     def publish_drone_state(self):
         """
@@ -421,7 +436,7 @@ class ROSEnvWrapper:
         camera_offset = np.array([0.15, 0.0, 0.0])
         
         # 相机相对于无人机的旋转(相机坐标系: X前 Y左 Z上)
-        # 无人机坐标系: X前 Y左 Z上
+        # ��人机坐标系: X前 Y左 Z上
         # 相机坐标系相对于无人机: 绕Z轴转-90度，然后绕Y轴转-90度
         camera_rot_relative = R.from_euler('xyz', [0, -90, -90], degrees=True)
         
@@ -479,7 +494,7 @@ if __name__ == '__main__':
             "comment": args.comment,
         }
         assert args.comment in ["BPTT", "elastic", "fsc"]
-
+        print("------------------debug:enter the node")
         env = main(traj=env_kwargs["traj"],
                    velocity=env_kwargs["velocity"],
                    comment=env_kwargs["comment"],
@@ -487,7 +502,7 @@ if __name__ == '__main__':
                    debug=False,
                    )
 
-        print(f"Environment created: {env}")
+        print(f"Environment created: {env.__class__}")
         # node = ROSEnvWrapper(env_kwargs)
 
         # Keep the node running

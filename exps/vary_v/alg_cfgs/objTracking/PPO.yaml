@@ -5,7 +5,7 @@ algorithm:
     features_extractor_kwargs:
       net_arch:
         state:
-          mlp_layer: [192]
+          layer: [192]
 
     net_arch:
       pi: [192, 96]
@@ -14,7 +14,7 @@ algorithm:
     optimizer_kwargs:
       weight_decay: 0.00001
     share_features_extractor: False
-  learning_rate: 0.001
+  learning_rate: 0.0001
   device: cuda
   gamma: 0.99
   gae_lambda: 0.95

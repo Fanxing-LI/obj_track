@@ -49,6 +49,6 @@ learn:
 test:
   is_fig: True
   is_fig_save: True
-  is_video: True
+  is_video: False
   is_video_save: True
   render_kwargs: { }

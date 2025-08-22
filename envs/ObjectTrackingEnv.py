@@ -65,7 +65,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
             target: Optional[th.Tensor] = None,
             max_episode_steps: int = 256,
             tensor_output: bool = False,
-            keep_dis=1.5,
+            keep_dis=3.0,
             box_noise=1.0,
             semantic_id =2
     ):

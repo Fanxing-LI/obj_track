@@ -10,6 +10,7 @@ from envs.TrackingEnv import AwareTrackEnv2
 from algorithms.BPTT import BPTT
 from algorithms.SHAC import SHAC
 from VisFly.utils.algorithms.PPO import PPO
+from VisFly.utils.algorithms.SAC import SAC
 import torch as th
 import sys
 import os
@@ -43,6 +44,7 @@ alg_alias = {
     "BPTT": BPTT,
     "PPO": PPO,
     "SHAC": SHAC,
+    "SAC": SAC,
 }
 
 args = parse_args().parse_args()

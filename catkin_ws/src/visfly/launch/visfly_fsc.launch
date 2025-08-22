@@ -1,9 +1,9 @@
 <launch>
     <!-- Start VisFly with FSC mode -->
-    <node pkg="visfly" type="visfly.py" name="visfly" output="screen" 
+    <node pkg="visfly" type="visfly.py" name="visfly_fsc" output="screen" 
           args="--traj B --velocity 2.0 --comment fsc --num_agent 1"/>
 
     <!-- Static transform for camera frame -->
-    <node pkg="tf" type="static_transform_publisher" name="tf_baseLink_cameraPose"
-          args="0.15 0.0 0.0 0 -1.57 -1.57 /world camera_depth_optical_center_link 100"/>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="tf_baseLink_cameraPose"
+          args="0.15 0.0 0.0 0 -1.57 -1.57 /world camera_depth_optical_center_link"/>
 </launch>
