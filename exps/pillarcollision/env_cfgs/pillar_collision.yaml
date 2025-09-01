@@ -1,0 +1,72 @@
+env:
+  num_agent_per_scene: 100
+  max_episode_steps: 512
+  sensor_kwargs:
+    - sensor_type: DEPTH
+      uuid: depth
+      resolution:
+        - 64
+        - 64
+      position:
+        - 0
+        - 0.2
+        - 0.0
+  scene_kwargs:
+    path: "VisFly/datasets/visfly-beta/configs/scenes/box15_wall_simple_pillars"
+  dynamics_kwargs:
+   dt: 0.03
+   ctrl_dt: 0.03
+   action_type: "bodyrate"  
+   ctrl_delay: true
+   cfg: "drone_d435i"
+  visual: true
+  requires_grad: true
+  tensor_output: true
+  device: "cpu"
+  random_kwargs:
+    state_generator:
+      class: "Uniform"
+      kwargs:
+        - position:
+            mean: [15.0, -12.0, 1.0]
+            half: [ 1,1,0.2]
+          orientation:
+            mean: [0.0,0.0,1.61]
+            half: [0.0, 0.0, 0.0]
+  target: [15.0, 10.0, 1]
+# Evaluation environment configuration  
+eval_env:
+  num_agent_per_scene: 1  # Single agent for evaluation
+  max_episode_steps: 512
+  visual: true  # Enable for visualization
+  tensor_output: true
+  scene_kwargs:
+    path: "VisFly/datasets/visfly-beta/configs/scenes/box15_wall_simple_pillars"
+    render_settings:
+      mode: fix
+      view: custom
+      resolution: [1080, 1920]
+      position: [[9., 0.1, 30.0], [9., 0, 0]]  # Top-down view
+      line_width: 6.0
+      trajectory: true
+      axes: true
+       [[9., 0, 0], [9, 0, 0]]
+  dynamics_kwargs:
+    dt: 0.03
+    ctrl_dt: 0.03
+    action_type: "bodyrate"
+    ctrl_delay: true
+    cfg: "drone_d435i"
+  requires_grad: true  # Disable gradients for evaluation
+  device: "cpu"
+  random_kwargs:
+    state_generator:
+      class: "Uniform"
+      kwargs:
+        - position:
+            mean: [15.0, -12.0, 1.0]
+            half: [ 1,1,0.2]
+          orientation:
+            mean: [0.0,0.0,1.61]
+            half: [0.0, 0.0, 0.0]
+  target: [15.0, 10.0, 1]

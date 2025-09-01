@@ -31,6 +31,14 @@ from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32, Vector3
 from scipy.spatial.transform import Rotation as R
 
+# Import FSC message type if available
+try:
+    from vision_msgs.msg import ControlCommand
+    FSC_MSGS_AVAILABLE = True
+except ImportError:
+    FSC_MSGS_AVAILABLE = False
+    rospy.logwarn("vision_msgs not found. FSC mode will use RateThrust fallback.")
+
 # Topic name definitions
 
 ODOM_TOPIC_PREFIX = "visfly/drone_{}/odom"
@@ -46,7 +54,6 @@ ELASTIC_CMD_PREFIX = "/drone{}/position_cmd"
 FSC_ODOM_TOPIC = "/hummingbird/ground_truth/odometry"
 FSC_TARGET_TOPIC = "/hummingbird/aprilfake/point"
 FSC_CONTROL_TOPIC = "/hummingbird/autopilot/control_command"
-FSC_MOTOR_TOPIC = "/hummingbird/command/motor_speed"
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run experiments', add_help=False)
@@ -112,9 +119,15 @@ class ROSEnvWrapper:
             elif self.comment == "BPTT":
                 action_sub = rospy.Subscriber(ACTION_TOPIC_PREFIX.format(i), RateThrust, self._make_action_callback(i))
             elif self.comment == "fsc":
-                # FSC uses custom message format - we'll create a simple subscriber for basic messages
-                # For now, subscribe to a simplified topic that we can process
-                action_sub = rospy.Subscriber(f"fsc/drone_{i}/bodyrate_thrust", RateThrust, self._make_fsc_callback(i))
+                # FSC mode: subscribe to ControlCommand if available, else use bridge RateThrust
+                if i == 0:  # FSC only uses single drone
+                    if FSC_MSGS_AVAILABLE:
+                        action_sub = rospy.Subscriber(FSC_CONTROL_TOPIC, ControlCommand, self._make_fsc_control_callback(i))
+                    else:
+                        # Fallback to bridge topic
+                        action_sub = rospy.Subscriber(f"fsc/drone_{i}/bodyrate_thrust", RateThrust, self._make_fsc_callback(i))
+                else:
+                    action_sub = None  # Only first drone for FSC
             self.drone_action_subs.append(action_sub)
 
         # Target publisher - use different topic for different modes
@@ -204,21 +217,36 @@ class ROSEnvWrapper:
         return callback
 
     def _make_fsc_callback(self, agent_id):
+        """Callback for RateThrust messages (bridge mode)"""
         def callback(msg):
             with self.action_lock:
-                # Extract body rates and thrust from RateThrust message and normalize
-                # FSC typically uses body rates in rad/s, normalize to [-1, 1]
-                # Thrust is in m/s^2, normalize around hover thrust (9.81)
-                max_body_rate = 2.0  # rad/s
-                hover_thrust = 9.81  # m/s^2
-                max_thrust_deviation = 5.0  # m/s^2
-                
+                # Direct passthrough - bridge already handles normalization
                 self.action_data[agent_id] = {
-                    'z_acc': np.clip((msg.thrust.z - hover_thrust) / max_thrust_deviation, -1.0, 1.0),
+                    'z_acc': msg.thrust.z,
                     'bodyrate': [
-                        np.clip(msg.angular_rates.x / max_body_rate, -1.0, 1.0),
-                        np.clip(msg.angular_rates.y / max_body_rate, -1.0, 1.0), 
-                        np.clip(msg.angular_rates.z / max_body_rate, -1.0, 1.0)
+                        msg.angular_rates.x,
+                        msg.angular_rates.y,
+                        msg.angular_rates.z
+                    ]
+                }
+        return callback
+    
+    def _make_fsc_control_callback(self, agent_id):
+        """Callback for FSC ControlCommand messages (direct mode)"""
+        def callback(msg):
+            # Check control mode
+            if msg.control_mode != 2:  # BODY_RATES = 2
+                rospy.logwarn_throttle(1.0, f"FSC: Unsupported control mode {msg.control_mode}, expected BODY_RATES (2)")
+                return
+                
+            with self.action_lock:
+                # Extract bodyrates and collective thrust from ControlCommand
+                self.action_data[agent_id] = {
+                    'z_acc': msg.collective_thrust,  # Already in m/s^2
+                    'bodyrate': [
+                        msg.bodyrates.x,  # rad/s
+                        msg.bodyrates.y,  # rad/s
+                        msg.bodyrates.z   # rad/s
                     ]
                 }
         return callback
@@ -251,10 +279,7 @@ class ROSEnvWrapper:
                         'z_acc': msg.thrust.z,  # 使用z轴推力
                         'bodyrate': [msg.angular_rates.x, msg.angular_rates.y, msg.angular_rates.z]  # 使用角速度
                     }
-                elif self.comment == "fsc":
-                    # 暂时pass
-                    raise NotImplementedError
-                    pass
+                # FSC mode is handled by _make_fsc_control_callback
         return callback
 
     def subscribe_action(self):
@@ -280,8 +305,13 @@ class ROSEnvWrapper:
                         action_tensor[i, 1:4] = torch.tensor(self.action_data[i]['bodyrate'])
                 return action_tensor
             elif self.comment == "fsc":
-                # 暂时返回zeros
-                raise NotImplementedError
+                # Extract z_acc and bodyrate for FSC (same format as BPTT)
+                action_tensor = torch.zeros(self.num_agent, 4)
+                for i in range(self.num_agent):
+                    if self.action_data[i] is not None:
+                        action_tensor[i, 0] = self.action_data[i]['z_acc']
+                        action_tensor[i, 1:4] = torch.tensor(self.action_data[i]['bodyrate'])
+                return action_tensor
 
     def publish_env_status(self):
         """

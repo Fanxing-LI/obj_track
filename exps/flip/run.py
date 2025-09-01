@@ -1,13 +1,14 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from envs.FlipEnv import FlipEnv
 from algorithms.BPTT import BPTT
 from algorithms.SHAC import SHAC
 from VisFly.utils.algorithms.PPO import PPO
 import torch as th
-import sys
-import os
 import argparse
 from VisFly.utils.common import load_yaml_config
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 th.autograd.set_detect_anomaly(True)
 
