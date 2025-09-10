@@ -4,35 +4,32 @@ import sys
 import os
 import torch as th
 import traceback
-import argparse
 
-# Use non-interactive backend for headless/remote
+# Set matplotlib to use non-interactive backend to avoid display issues on remote servers
 import matplotlib
 matplotlib.use('Agg')
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-from envs.FlipEnv import FlipEnv
+from envs.PColSCEnv import PColSCEnv
 from algorithms.BPTT import BPTT
 from algorithms.SHAC import SHAC
-from VisFly.utils.algorithms.PPO import PPO
 from VisFly.utils.common import load_yaml_config
-
-th.autograd.set_detect_anomaly(True)
-
-
+from VisFly.utils.policies import extractors  # noqa: F401
+import argparse
+# th.autograd.set_detect_anomaly(True)
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 def parse_args():
-    parser = argparse.ArgumentParser(description='Run flip experiments', add_help=False)
+    parser = argparse.ArgumentParser(description='Run ordinary navigation experiments', add_help=False)
     parser.add_argument('--comment', '-c', type=str, default="")
     parser.add_argument("--train", "-t", type=int, default=1)
-    parser.add_argument("--algorithm", "-a", type=str, default="SHAC",
-                        choices=["BPTT", "SHAC", "PPO"],
+    parser.add_argument("--algorithm", "-a", type=str, default="BPTT",
+                        choices=["BPTT", "SHAC"],
                         help="Algorithm to use for training")
-    parser.add_argument("--env", "-e", type=str, default="flip")
+    parser.add_argument("--env", "-e", type=str, default="pcol_sc",)
     parser.add_argument("--seed", "-s", type=int, default=42)
     parser.add_argument("--weight", "-w", type=str, default=None)
     return parser
-
 
 args = parse_args().parse_args()
 
@@ -44,13 +41,12 @@ env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/en
 
 # Environment aliases
 env_alias = {
-    "flip": FlipEnv,
+    "pcol_sc": PColSCEnv,
 }
 
 alg_alias = {
     "BPTT": BPTT,
     "SHAC": SHAC,
-    "PPO": PPO,
 }
 
 # Create training environment
@@ -69,84 +65,59 @@ env = env_alias[args.env](
 if __name__ == "__main__":
     # Training mode
     if args.train:
-        if args.algorithm == "PPO":
-            model = alg_alias[args.algorithm](
-                env=env,
-                seed=args.seed,
-                comment=args.comment,
-                save_path=save_folder,
-                **config["algorithm"]
-            )
-        else:
-            model = alg_alias[args.algorithm](
-                env=train_env,
-                seed=args.seed,
-                comment=args.comment,
-                save_path=save_folder,
-                **config["algorithm"]
-            )
+        model = alg_alias[args.algorithm](
+            env=train_env,
+            # train_env=train_env,
+            seed=args.seed,
+            comment=args.comment,
+            save_path=save_folder,
+            **config["algorithm"]
+        )
 
         if args.weight is not None:
             model.load(path=save_folder + args.weight, env=env)
 
         model.learn(**config["learn"])
         model.save()
-
+        
     else:
         test_model_path = save_folder + args.weight
         test_env = env_alias[args.env](**env_config["eval_env"])
         test_env.reset()
-
+        
         # Debug: Print agent spawn position for testing
         print(f"Agent spawn position: {test_env.position[0].cpu().numpy()}")
-        # FlipEnv may not have a 'target', try 'target_position' then fallback
-        target_attr = getattr(test_env, 'target', None)
-        if target_attr is None:
-            target_attr = getattr(test_env, 'target_position', th.tensor([0.0, 0.0, 1.5], device=test_env.position.device))
-        if hasattr(target_attr, 'cpu'):
-            print(f"Target position: {target_attr.cpu().numpy()}")
-        else:
-            print(f"Target position: {target_attr}")
-
+        print(f"Target position: {test_env.target[0].cpu().numpy()}")
+        spawn_to_target_distance = ((test_env.target[0] - test_env.position[0]).norm()).item()
+        print(f"Initial distance to target: {spawn_to_target_distance:.2f}m")
+        
         # Load the trained model
         print(f"Loading model from: {test_model_path}")
         model = alg_alias[args.algorithm].load(test_model_path, env=test_env)
-
+        
         from tst import Test as tracking_test
         output_dir = save_folder + f"/test/{args.env.lower()}_{args.algorithm.lower()}"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
-
-        # Build debug visualization points (spawn center, target, and ring)
+        
+        # Add debug visualization points for spawn area and target
+        import torch as th
         import numpy as np
-        try:
-            spawn_center_cfg = env_config["eval_env"]["random_kwargs"]["state_generator"]["kwargs"][0]["position"]["mean"]
-        except Exception:
-            spawn_center_cfg = [0.0, 0.0, 1.5]
-        spawn_center = th.tensor([spawn_center_cfg], dtype=th.float32)
-
-        # Target from env attribute if available
-        if hasattr(test_env, 'target'):
-            tgt = test_env.target
-            target_pos = tgt if isinstance(tgt, th.Tensor) else th.tensor(tgt, dtype=th.float32, device=test_env.position.device)
-            target_pos = target_pos if target_pos.ndim > 1 else target_pos.unsqueeze(0)
-        elif hasattr(test_env, 'target_position'):
-            target_pos = th.tensor([test_env.target_position.tolist() if hasattr(test_env.target_position, 'tolist') else test_env.target_position], dtype=th.float32)
-        else:
-            target_pos = th.tensor([[0.0, 0.0, 1.5]], dtype=th.float32)
-
+        spawn_center = th.tensor([env_config["eval_env"]["random_kwargs"]["state_generator"]["kwargs"][0]["position"]["mean"]])
+        target_pos = th.tensor([env_config["eval_env"]["target"]])
+        
         # Create a ring around target (circle points)
         ring_points = []
         ring_radius = 1.0
         for angle in np.linspace(0, 2*np.pi, 20):
-            x = target_pos[0, 0].item() + ring_radius * np.cos(angle)
-            y = target_pos[0, 1].item() + ring_radius * np.sin(angle)
-            z = target_pos[0, 2].item()
+            x = target_pos[0, 0] + ring_radius * np.cos(angle)
+            y = target_pos[0, 1] + ring_radius * np.sin(angle) 
+            z = target_pos[0, 2]
             ring_points.append([x, y, z])
         ring_curve = th.tensor(ring_points).unsqueeze(0)
-
-        debug_points = th.cat([spawn_center, target_pos.cpu()], dim=0)
-        print(f"Debug visualization: spawn center {spawn_center[0].tolist()}, target {target_pos[0].cpu().tolist()}")
+        
+        debug_points = th.cat([spawn_center, target_pos], dim=0)
+        print(f"Debug visualization: spawn center {spawn_center[0].tolist()}, target {target_pos[0].tolist()}")
 
         # Initialize the test handle
         print(f"Initializing test handle with output directory: {output_dir}")
@@ -156,13 +127,14 @@ if __name__ == "__main__":
             name=f"{args.env.lower()}_{args.algorithm.lower()}_test",
             save_path=output_dir
         )
-
-        # --- Extended evaluation with videos and plots ---
-        n_eval_episodes = 4
+        
+        # --- Extended evaluation matching VisFly example -------------------------------------------------
+        n_eval_episodes = 4  # how many complete episodes to evaluate for SR alignment
         aggregated_success = 0
         total_agents_eval = test_env.num_envs * n_eval_episodes
 
         for ep_i in range(n_eval_episodes):
+            # create a sub-directory for this episode:  .../bptt_test/episode_XX/
             episode_dir = os.path.join(output_dir, f"episode_{ep_i:03d}")
             if not os.path.exists(episode_dir):
                 os.makedirs(episode_dir, exist_ok=True)
@@ -181,6 +153,7 @@ if __name__ == "__main__":
             test_handle.eq_l = []
 
             try:
+                # Add debug visualization to render_kwargs
                 debug_render_kwargs = config.get('test', {}).get('render_kwargs', {}).copy()
                 debug_render_kwargs.update({
                     'is_draw_axes': True,
@@ -188,25 +161,28 @@ if __name__ == "__main__":
                     'curves': ring_curve
                 })
 
+                # Skip interactive video playback, only save videos to files
                 result = test_handle.test(
-                    is_fig=True,
-                    is_fig_save=False,
+                    is_fig=True,              # draw trajectory plots every episode
+                    is_fig_save=False,        # not here; outer code saves per-episode
                     is_video=False,
                     is_video_save=True,
                     is_sub_video=False,
                     render_kwargs=debug_render_kwargs,
                 )
+                # Unpack result robustly
                 if isinstance(result, tuple):
                     figs = result[0] if len(result) > 0 else []
                 else:
                     figs = result
-
+                # Ensure figs is always a list
                 import matplotlib.figure
                 if figs is not None and not isinstance(figs, list):
                     if isinstance(figs, matplotlib.figure.Figure):
                         figs = [figs]
                     else:
                         figs = list(figs)
+                # Generate debug analysis plots per-episode in episode_dir
                 try:
                     _ = test_handle.draw_debug(save_path=episode_dir)
                 except Exception:
@@ -217,6 +193,7 @@ if __name__ == "__main__":
                 print("Continuing with next episode...")
                 continue
 
+            # Save figures manually into the episode folder
             if figs:
                 for fig_idx, fig in enumerate(figs):
                     fig_path = os.path.join(episode_dir, f"trajectory_plot_{fig_idx}.png")
@@ -226,12 +203,14 @@ if __name__ == "__main__":
                     except Exception as e:
                         print(f"Failed to save trajectory plot: {e}")
 
+            # Save videos (combined, global, and individual agent views)
             try:
                 test_handle.save_combined_video(episode_dir)
             except Exception as e:
                 print(f"Error saving combined video for episode {ep_i}: {e}")
                 print("Continuing with next episode...")
 
+            # Count agents that achieved success at any point during the episode
             successful_agents = set()
             for timestep_idx, timestep_info in enumerate(test_handle.info_all):
                 for agent_idx, agent_info in enumerate(timestep_info):
@@ -239,7 +218,7 @@ if __name__ == "__main__":
                         successful_agents.add(agent_idx)
             episode_successes = len(successful_agents)
             aggregated_success += episode_successes
-            print(f"Episode {ep_i}: {episode_successes}/{test_env.num_envs} agents achieved success")
+            print(f"Episode {ep_i}: {episode_successes}/{test_env.num_envs} agents reached target at some point")
 
         eval_sr = aggregated_success / total_agents_eval
         print(f"\nAggregated evaluation over {n_eval_episodes} episodes → Success Rate: {eval_sr:.3f}\n")

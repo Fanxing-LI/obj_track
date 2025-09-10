@@ -1,6 +1,6 @@
 
 env:
-  num_agent_per_scene: 100
+  num_agent_per_scene: 160
   max_episode_steps: 256
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/garage_empty
