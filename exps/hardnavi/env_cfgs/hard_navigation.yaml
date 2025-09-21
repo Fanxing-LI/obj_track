@@ -1,0 +1,73 @@
+env:
+  num_agent_per_scene: 100
+  max_episode_steps: 512
+  sensor_kwargs:
+    - sensor_type: DEPTH
+      uuid: depth
+      resolution: [16, 16]
+      position: [0, 0.2, 0.0]
+  scene_kwargs:
+    path: "VisFly/datasets/visfly-beta/configs/scenes/box15_wall_uniform_tri_grid_r07_c07_var00"
+  dynamics_kwargs:
+    dt: 0.03
+    ctrl_dt: 0.03
+    action_type: "bodyrate"
+    ctrl_delay: true
+    cfg: "drone_d435i"
+  visual: true
+  requires_grad: true
+  tensor_output: true
+  device: "cpu"
+  random_kwargs:
+    state_generator:
+      class: "Uniform"
+      kwargs:
+        - position:
+            mean: [15.0, 0.0, 1.5]
+            half: [10, 10, 0.2]
+          orientation:
+            mean: [0, 0, 0]
+            half: [0, 0, 3.1416]
+  target: [15.0, 0.0, 1.5]
+  collision_config:
+    is_object_collidable: false
+    is_scene_collidable: true
+
+eval_env:
+  num_agent_per_scene: 1
+  max_episode_steps: 512
+  visual: true
+  tensor_output: true
+  scene_kwargs:
+    path: "VisFly/datasets/visfly-beta/configs/scenes/box15_wall_uniform_tri_grid_r07_c07_var00"
+    render_settings:
+      mode: fix
+      view: custom
+      resolution: [1080, 1920]
+      position: [[15., 0.1, 30.0], [15., 0, 0]]
+      line_width: 6.0
+      trajectory: true
+      axes: true
+  dynamics_kwargs:
+    dt: 0.03
+    ctrl_dt: 0.03
+    action_type: "bodyrate"
+    ctrl_delay: true
+    cfg: "drone_d435i"
+  requires_grad: true
+  device: "cpu"
+  random_kwargs:
+    state_generator:
+      class: "Uniform"
+      kwargs:
+        - position:
+            mean: [15.0, 0.0, 1.5]
+            half: [10, 10, 0.2]
+          orientation:
+            mean: [0, 0, 0]
+            half: [0, 0, 3.1416]
+  target: [15.0, 0.0, 1.5]
+  collision_config:
+    is_object_collidable: true
+    is_scene_collidable: true
+

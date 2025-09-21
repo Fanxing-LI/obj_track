@@ -1,0 +1,56 @@
+algorithm:
+  policy: CustomMultiInputPolicy
+  policy_kwargs:
+    features_extractor_class: FlexibleExtractor
+    features_extractor_kwargs:
+      net_arch:
+        state:
+          layer: [192]
+        depth:
+          channel: [ 32, 64, 128, 256 ]
+          kernel_size: 4
+          stride: 2
+          padding: 1
+          layer: [ ]
+          ln: False
+          bias: False
+
+    critic:
+      dist: mse
+      n_critics: 2
+      net_arch:
+        state: [192, 96]
+        depth: [192, 96]
+    actor:
+      dist: normal
+      net_arch:
+        state: [192, 96]
+        depth: [192, 96]
+
+    activation_fn: relu
+    optimizer_class: adam
+    optimizer_kwargs:
+      weight_decay: 0.00001
+    share_features_extractor: False
+
+  learning_rate: 0.001
+  horizon: 96
+  tau: 0.005
+  gamma: 0.99
+  device: cuda
+  gradient_steps: 10
+  train_freq: 96
+  batch_size: 25600
+  actor_gradient_steps: 1
+  buffer_size: 100000
+
+learn:
+  total_timesteps: 10000000
+  log_interval: 1000
+
+test:
+  is_fig: True
+  is_fig_save: True
+  is_video: True
+  is_video_save: True
+  render_kwargs: { }

@@ -1,0 +1,94 @@
+# Environment configuration for acrobatic flight
+env:
+  num_agent_per_scene: 32
+  visual: False
+  device: "cpu"  # Use CPU for small batch size
+  requires_grad: True  # Required for BPTT algorithm
+  tensor_output: True  # Required for differentiable rewards
+  max_episode_steps: 256
+  task_mode: "circle"  # Options: "circle", "flip", "mix"
+  sensor_kwargs:
+    - sensor_type: DEPTH
+      uuid: depth
+      resolution:
+        - 64
+        - 64
+      position:
+        - 0
+        - 0.2
+        - 0.0
+  random_kwargs:
+    state_generator:
+      class: "Uniform"
+      kwargs:
+        - position: 
+            mean: [6., 0., 1.5]
+            half: [1., 1., 0.25]
+          orientation:
+            mean: [0., 0., 0.]
+            half: [0.1, 0.1, 0.1]
+          velocity:
+            mean: [0., 0., 0.]
+            half: [0.5, 0.5, 0.5]
+          angular_velocity:
+            mean: [0., 0., 0.]
+            half: [0.5, 0.5, 0.5]
+  dynamics_kwargs:
+   dt: 0.02
+   ctrl_dt: 0.02
+   action_type: "bodyrate"
+   ctrl_delay: true
+   cfg: "drone_d435i"
+   ori_output_type: "quaternion"
+
+eval_env:
+  num_agent_per_scene: 1
+  visual: True
+  device: "cpu"  # Use CPU for small batch size
+  requires_grad: False  # Not needed for evaluation
+  max_episode_steps: 256
+  task_mode: "circle"
+  sensor_kwargs:
+    - sensor_type: DEPTH
+      uuid: depth
+      resolution:
+        - 64
+        - 64
+      position:
+        - 0
+        - 0.2
+        - 0.0
+      output: obs
+  scene_kwargs:
+    path: "VisFly/datasets/visfly-beta/configs/scenes/garage_empty"
+    render_settings:
+      mode: fix
+      view: custom
+      resolution: [1080, 1920]
+      position: [[-7., 3., 3.], [3., 0., 1.5]]  # Camera positioned to see acrobatic maneuvers
+      line_width: 4.0
+      trajectory: true
+      axes: true
+  random_kwargs:
+    state_generator:
+      class: "Uniform"
+      kwargs:
+        - position:
+            mean: [6., 0., 1.5]
+            half: [0.5, 0.5, 0.25]
+          orientation:
+            mean: [0., 0., 0.]
+            half: [0.05, 0.05, 0.05]
+          velocity:
+            mean: [0., 0., 0.]
+            half: [0.25, 0.25, 0.25]
+          angular_velocity:
+            mean: [0., 0., 0.]
+            half: [0.25, 0.25, 0.25]
+  dynamics_kwargs:
+    dt: 0.02
+    ctrl_dt: 0.02
+    action_type: "bodyrate"
+    ori_output_type: "quaternion"
+    ctrl_delay: True
+    cfg: "drone_d435i"

@@ -1,0 +1,34 @@
+algorithm:
+  policy: MultiInputPolicy
+  policy_kwargs:
+    features_extractor_class: FlexibleExtractor
+    features_extractor_kwargs:
+      net_arch:
+        state:
+          layer: [256, 128]
+        command:
+          layer: [64, 32]
+    net_arch:
+      pi: [256, 128]
+      qf: [256, 128]
+    activation_fn: relu
+    optimizer_kwargs:
+      weight_decay: 0.00001
+    
+  learning_rate: 0.001
+  horizon: 96
+  dump_step: 50
+  device: cpu
+
+# Learning/training parameters
+learn:
+  total_timesteps: 10000000
+
+# Test parameters (for evaluation mode)
+test:
+  is_fig: True
+  is_fig_save: True
+  is_video: True
+  is_video_save: True
+  is_sub_video: True
+  render_kwargs: {}

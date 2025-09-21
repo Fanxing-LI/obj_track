@@ -1,0 +1,34 @@
+env:
+  num_agent_per_scene: 160
+  max_episode_steps: 256
+  scene_kwargs:
+    path: VisFly/datasets/visfly-beta/configs/scenes/garage_empty
+  dynamics_kwargs:
+    dt: 0.03
+    ctrl_dt: 0.03
+    ctrl_delay: True
+    action_type: "bodyrate"
+  visual: False
+  device: cpu
+  requires_grad: True
+  tensor_output: True
+  # Circle-specific parameters
+  desired_radius: 2.2  # TACO standard radius in meters
+  tangential_speed: 1.0  # Default tangential speed in m/s
+
+eval_env:
+  num_agent_per_scene: 4
+  visual: False
+  max_episode_steps: 256
+  tensor_output: True
+  scene_kwargs:
+    path: VisFly/datasets/visfly-beta/configs/scenes/garage_empty
+    render_settings:
+      mode: fix
+      view: custom
+      resolution: [1080,1920]
+      position: [[7., 6.8, 5.5], [7, 4.8, 4.5]]
+      trajectory: True
+  # Circle-specific parameters for evaluation
+  desired_radius: 2.2
+  tangential_speed: 1.0

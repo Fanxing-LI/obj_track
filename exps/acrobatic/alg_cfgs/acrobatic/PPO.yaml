@@ -1,0 +1,37 @@
+algorithm:
+  policy: CustomMultiInputPolicy
+  policy_kwargs:
+    features_extractor_class: StateExtractor
+    features_extractor_kwargs:
+      net_arch:
+        state:
+          mlp_layer: [256, 128]
+    net_arch:
+      pi: [256, 128]
+      vf: [256, 128]
+    activation_fn: relu
+    optimizer_kwargs:
+      weight_decay: 0.00001
+    share_features_extractor: False
+    
+  learning_rate: 0.001
+  device: cuda
+  gamma: 0.99
+  gae_lambda: 0.95
+  n_epochs: 5
+  n_steps: 256
+  batch_size: 8192
+  verbose: 1
+
+# Learning/training parameters
+learn:
+  total_timesteps: 1000000
+
+# Test parameters (for evaluation mode)
+test:
+  is_fig: True
+  is_fig_save: True
+  is_video: True
+  is_video_save: True
+  is_sub_video: True
+  render_kwargs: {}

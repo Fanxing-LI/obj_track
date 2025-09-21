@@ -1,0 +1,68 @@
+<launch>
+    <!-- Launch file for Elastic-Tracker with VisFly backend -->
+    
+    <!-- Launch Parameters -->
+    <arg name="traj" default="B"/>
+    <arg name="velocity" default="3.0"/>
+    <arg name="num_drones" default="4"/>
+    <arg name="use_bridge" default="true" doc="Use bridge node for odometry conversion"/>
+    
+    <!-- VisFly Backend -->
+    <node pkg="visfly" type="visfly.py" name="visfly" output="screen"
+          args="--traj $(arg traj) --velocity $(arg velocity) --comment elastic --num_agent $(arg num_drones)"/>
+    
+    <!-- Elastic-VisFly Bridge -->
+    <node if="$(arg use_bridge)" pkg="visfly" type="elastic_visfly_bridge.py" name="elastic_visfly_bridge" output="screen">
+        <param name="num_drones" value="$(arg num_drones)"/>
+        <param name="use_so3_controller" value="false"/>
+    </node>
+    
+    <!-- Elastic-Tracker Planning Components (without simulator) -->
+    <include file="$(find planning)/launch/planning_visfly.launch">
+        <arg name="num_drones" value="$(arg num_drones)"/>
+        <arg name="rhos_visibility" value="10000.0"/>
+        <arg name="rho_tracking" value="1000.0"/>
+        <arg name="target_name" value="/target_ekf_odom"/>
+    </include>
+    
+    <!-- Trajectory server for each drone -->
+    <group ns="drone0">
+        <node pkg="planning" name="traj_server" type="traj_server" output="screen">
+            <remap from="~position_cmd" to="position_cmd"/>
+            <remap from="~trajectory" to="trajectory"/>
+            <remap from="~heartbeat" to="heartbeat"/>
+            <param name="time_forward" value="1.0" type="double"/>
+        </node>
+    </group>
+    
+    <group ns="drone1" if="$(eval arg('num_drones') > 1)">
+        <node pkg="planning" name="traj_server" type="traj_server" output="screen">
+            <remap from="~position_cmd" to="position_cmd"/>
+            <remap from="~trajectory" to="trajectory"/>
+            <remap from="~heartbeat" to="heartbeat"/>
+            <param name="time_forward" value="1.0" type="double"/>
+        </node>
+    </group>
+    
+    <group ns="drone2" if="$(eval arg('num_drones') > 2)">
+        <node pkg="planning" name="traj_server" type="traj_server" output="screen">
+            <remap from="~position_cmd" to="position_cmd"/>
+            <remap from="~trajectory" to="trajectory"/>
+            <remap from="~heartbeat" to="heartbeat"/>
+            <param name="time_forward" value="1.0" type="double"/>
+        </node>
+    </group>
+    
+    <group ns="drone3" if="$(eval arg('num_drones') > 3)">
+        <node pkg="planning" name="traj_server" type="traj_server" output="screen">
+            <remap from="~position_cmd" to="position_cmd"/>
+            <remap from="~trajectory" to="trajectory"/>
+            <remap from="~heartbeat" to="heartbeat"/>
+            <param name="time_forward" value="1.0" type="double"/>
+        </node>
+    </group>
+    
+    <!-- RViz for visualization -->
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find mapping)/config/rviz_sim.rviz"/>
+    
+</launch>

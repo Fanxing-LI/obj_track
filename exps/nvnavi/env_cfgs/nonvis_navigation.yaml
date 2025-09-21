@@ -1,0 +1,73 @@
+env:
+  num_agent_per_scene: 100
+  max_episode_steps: 512
+  scene_kwargs:
+    path: "VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty"
+  dynamics_kwargs:
+   dt: 0.03
+   ctrl_dt: 0.03
+   action_type: "bodyrate"
+   ctrl_delay: true
+   cfg: "drone_d435i"
+  visual: false
+  requires_grad: true
+  tensor_output: true
+  device: "cpu"
+#  random_kwargs:
+#    state_generator:
+#      class: "Uniform"
+#      kwargs:
+#        - position:
+#            mean: [15.0, 0.0, 1]
+#            half: [10.0, 10.0, 0.2]
+#          orientation:
+#            mean: [0., 0., 0.]
+#            half: [0.0, 0.0, 3.1416]
+#  target: [15.0, 0.0, 1]
+  random_kwargs:
+    state_generator:
+      class: "Uniform"
+      kwargs:
+        - position:
+            mean: [15.0, -5.0, 1]
+            half: [1, 1, 0]
+          orientation:
+            mean: [0., 0. ,1.68]
+            half: [0.0, 0.0, 0]
+  target: [15.0, 5.0, 1]
+# Evaluation environment configuration  
+eval_env:
+  num_agent_per_scene: 1  # Single agent for evaluation
+  max_episode_steps: 512
+  tensor_output: true
+  scene_kwargs:
+    path: "VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty"
+    render_settings:
+      mode: fix
+      view: custom
+      resolution: [1080, 1920]
+      position: [[9., 0.1, 30.0], [9., 0, 0]]  # Top-down view
+      line_width: 6.0
+      trajectory: true
+      axes: true
+       [[9., 0, 0], [9, 0, 0]]
+  dynamics_kwargs:
+    dt: 0.03
+    ctrl_dt: 0.03
+    action_type: "bodyrate"
+    ctrl_delay: true
+    cfg: "drone_d435i"
+  visual: false
+  requires_grad: true  # Disable gradients for evaluation
+  device: "cpu"
+  random_kwargs:
+    state_generator:
+      class: "Uniform"
+      kwargs:
+        - position:
+            mean: [15.0, -5.0, 1]
+            half: [1, 1, 0]
+          orientation:
+            mean: [0., 0., 1.68]
+            half: [0.0, 0.0, 0]
+  target: [15.0, 5.0, 1]
