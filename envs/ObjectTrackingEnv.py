@@ -188,14 +188,10 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.update_target()
 
         state = th.hstack([
-            # self.local_targets+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * self.box_noise,
-            # self.rebuild_local_targets + th.randn_like(self.box_center) * th.tensor([0.02,0.02, 0.02]) * self.box_noise,
-            self.head_targets+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * self.box_noise,
-            # self.local_targets_v+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 5 * self.box_noise,
-            self.head_targets_v+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 5 * self.box_noise,
-            # self.rebuild_local_targets_v + th.randn_like(self.box_center) * th.tensor([0.02, 0.02, 0.02]) * 5 * self.box_noise,
-            # self.box_velocity+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.03]) *10* self.box_noise,
-            # self.box_velocity,
+            self.head_targets+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 2 * self.box_noise,
+            self.head_targets_v+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 10 * self.box_noise,
+            # self.head_targets+th.sin(2*th.pi*self.t).unsqueeze(1)*0.05 * self.box_noise,
+            # self.head_targets_v-th.sin(2*th.pi*self.t).unsqueeze(1)*0.2 * self.box_noise,
             self.orientation,
             self.head_v / 10,
             self.angular_velocity / 10,
@@ -232,7 +228,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         ang_vel_r = (self.angular_velocity - 0).norm(dim=1) * -0.004
         acc_r = (self.envs.acceleration - 0).norm(dim=1) * -0.001
         ang_acc_r = (self.envs.angular_acceleration - 0).norm(dim=1) * -0.001
-        act_r = self._action[:,1:].norm(dim=1).to(vel_r.device) * -0.003
+        act_r = self._action[:,1:].norm(dim=1).to(vel_r.device) * -0.003 + self._action[:,2:3].norm(dim=1).to(vel_r.device) * -0.025
         # act_change_r = (self.envs.dynamics._pre_action[0].to(self.device).T-
         #                 self._action.to(self.device)
         #                 ).norm(dim=-1) * -0.002

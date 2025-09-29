@@ -6,15 +6,16 @@ algorithm:
       net_arch:
         state:
           layer: [512]
+#          layer: []
 
     net_arch:
-      pi: [512, 512]
-      vf: [512, 512]
+      pi: [512, 256]
+      vf: [512, 256]
     activation_fn: relu
     optimizer_kwargs:
       weight_decay: 0.00001
     share_features_extractor: False
-  learning_rate: 0.0001
+  learning_rate: 0.0003
   device: cuda
   gamma: 0.98
   gae_lambda: 0.95
@@ -22,7 +23,7 @@ algorithm:
   n_steps: 256
   batch_size: 65536
   verbose: 1
-#  scene_freq: 3000000
+  scene_freq: 3000000
 
 learn:
   total_timesteps: 25000000

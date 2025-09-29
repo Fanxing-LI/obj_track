@@ -77,9 +77,9 @@ class Test(TestBase):
     ):
         print(f"--------------------debug: enter test")
 
-        if is_fig_save:
-            if not is_fig:
-                raise ValueError("is_fig_save must be True if is_fig is True")
+        # if is_fig_save:
+        #     if not is_fig:
+        #         raise ValueError("is_fig_save must be True if is_fig is True")
 
         if policy is None:
             policy = self.model.policy
@@ -151,7 +151,7 @@ class Test(TestBase):
                 # render_kwargs["points"] = th.atleast_2d(env.target)
                 imgs = env.render(**render_kwargs)
                 obs = obs_as_tensor(obs, device="cpu")
-                if is_sub_video and len(self._img_names) > 0:
+                if is_sub_video and len(self._img_names) > 0 and False:
                 # add subvideo at right lower of the image
                     edge = 0.01
                     shape_img = imgs[0].shape[:2]
@@ -194,7 +194,8 @@ class Test(TestBase):
                     roun += 1
                     prev_len = len(self.reward_all)
 
-            if roun==1:
+            print(len(self.reward_all), len(agent_index))
+            if roun==1 and len(self.reward_all)>=300:
                 break
 
         mean_r = th.as_tensor(self.eq_r, dtype=th.float32).mean().item()

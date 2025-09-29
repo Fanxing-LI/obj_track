@@ -39,7 +39,8 @@ env:
     ctrl_dt: 0.03
     ctrl_delay: true
     action_type: bodyrate
-    cfg: drone_state
+    cfg: drone_d435i_n100
+#    cfg: drone_state
   random_kwargs:
     state_generator:
       class: TargetUniform
@@ -64,25 +65,25 @@ env:
 eval_env:
   max_episode_steps: 4096
   num_scene: 1
-  num_agent_per_scene: 4
-  box_noise: 1
+  num_agent_per_scene: 1
+  box_noise: 0
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty
     obj_settings:
-      path: /home/lfx-desktop/files/obj_track/exps/vary_v/configs/obj/B/cubic.json
+      path: /home/lfx-desktop/files/obj_track/exps/vary_v/configs/obj/8/cubic.json
     render_settings:
-      FOV: false
-      mode: object
+      FOV: true
+      mode: fix
       view: custom
       resolution:
       - 1080
-      - 1626
+      - 1920
       position:
-      - - 3
-        - 3
+      - - 15
         - 7
-      - - 16.5
+        - 2
+      - - 15
         - -1
-        - 1.5
+        - 1.
       trajectory: false
       velocity: false

@@ -22,9 +22,9 @@ import yaml
 """
    Current Best: SHAC_NoCaliHeadV_Pos_Dis3.0_spd3.4_lessNoise_2.zip
    others: SHAC_NoCaliHeadV_Pos_Dis1.5_spd3.4_lessNoise_1.zip for distance 1.5
-   SHAC_NoCaliHeadV_Pos_Dis4.5_spd3.4_lessNoise_1.zip
-   
-   PPO_for_plot.zip
+   SHAC_NoCaliHeadV_Dis4.5_6.zip
+   SHAC_deploy_5.zip
+   PPO_NoRand_1.zip
 """
 
 def parse_args():
@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument("--env", "-e", type=str, default="objTracking")
     parser.add_argument("--seed", "-s", type=int, default=42)
     parser.add_argument("--weight", "-w", type=str, default=None, )
-    parser.add_argument("--traj", "-tr", type=str, default="1", )
+    parser.add_argument("--traj", "-tr", type=str, default="8", )
     parser.add_argument("--velocity", "-v", type=float, default=1.0, )
     parser.add_argument("--distance", "-d", type=float, default=3.0, )
     return parser

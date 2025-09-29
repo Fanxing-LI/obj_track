@@ -90,7 +90,6 @@ class ObjectTrackingEnv(OriObjectTrackingEnv):
             self.YOLO_head_vel = (self.YOLO_head_pos - self.pre_YOLO_head_pos) / self.envs.dynamics.ctrl_dt #+ cali_head_vel
             self.pre_YOLO_head_pos = self.YOLO_head_pos.clone()
 
-
         self.ekf.predict()
         self.estimate_pos = self.ekf.x[0:3].T
         self.estimate_vel = self.ekf.x[3:6].T

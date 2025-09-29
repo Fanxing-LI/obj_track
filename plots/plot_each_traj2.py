@@ -47,12 +47,12 @@ FigFon.set_fashion("IEEE")
 save_folder = os.path.dirname(os.path.abspath(sys.argv[0])) + f"/saved/objTracking/"
 
 labels = [ "D","B","8", ]
-fig, axeses = FigFon.get_figure_axes(SubFigSize=(1, 3), Column=2, Border=[0,0,0.92,1])
 
 all_curvatures = []
 
 for j, label in enumerate(labels):
-    axes = axeses[j]
+    fig, axeses = FigFon.get_figure_axes(SubFigSize=(1, 1), Column=1, Border=[0, 0, 0.86, 1])
+    axes = axeses
     data = th.load(f"exps/vary_v/saved/objTracking/test/{label}_1.0_SHAC_Dis3.0.pth")
 
     # Get target positions
@@ -88,27 +88,24 @@ for j, label in enumerate(labels):
         axes.set_ylim([-5.5, 3.5])
     else:
         axes.set_ylim([-3.5, 2.5])
+        # expand x lim by 0.2
+        current_xlim = axes.get_xlim()
+        axes.set_xlim([current_xlim[0]-0.2, current_xlim[1]+0.2])
     axes.grid(True, alpha=0.3)
     axes.set_title(f"Trajectory {label}")
 
-# Add shared colorbar
-# norm = plt.Normalize(min(map(np.min, all_curvatures)), max(map(np.max, all_curvatures)))
-# sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
-# sm.set_array([])
-# cbar = fig.colorbar(sm, ax=axeses.ravel().tolist(), orientation='vertical',
-#                     fraction=0.03, pad=0.05, shrink=0.8)
-# cbar.set_label('Curvature Magnitude', fontsize=10)
-norm = plt.Normalize(min(map(np.min, all_curvatures)), max(map(np.max, all_curvatures)))
-sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
-sm.set_array([])
 
-# Define the position of the colorbar (left, bottom, width, height) in figure coordinates
-cbar_ax = fig.add_axes([0.94, 0.2, 0.01, 0.7])  # Adjust these values as needed
-cbar = fig.colorbar(sm, cax=cbar_ax)
-cbar.set_label('Curvature Magnitude')
+    norm = plt.Normalize(min(map(np.min, all_curvatures)), max(map(np.max, all_curvatures)))
+    sm = plt.cm.ScalarMappable(cmap='viridis', norm=norm)
+    sm.set_array([])
 
-# Save figure
-current_folder = os.path.dirname(os.path.abspath(__file__))
-save_folder = current_folder.split("obj_track")[0] + "obj_track/plots/"
-fig.savefig(f"{save_folder}target_trajectory.png")
-plt.show()
+    # Define the position of the colorbar (left, bottom, width, height) in figure coordinates
+    cbar_ax = fig.add_axes([0.89, 0.2, 0.01, 0.7])  # Adjust these values as needed
+    cbar = fig.colorbar(sm, cax=cbar_ax)
+    cbar.set_label('Curvature Magnitude')
+
+    # Save figure
+    current_folder = os.path.dirname(os.path.abspath(__file__))
+    save_folder = current_folder.split("obj_track")[0] + "obj_track/plots/"
+    fig.savefig(f"{save_folder}target_trajectory_{label}.png")
+    plt.show()

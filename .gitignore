@@ -243,3 +243,15 @@ examples/
 
 # ignore tensorboard log event file
 *.tfevents.*
+
+# ros pkg
+devel/
+build/
+logs/
+
+# rosbag
+*.bag
+*.bag.active
+*.bag.partial
+*.db3
+*.db-journal

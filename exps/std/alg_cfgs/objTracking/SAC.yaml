@@ -8,8 +8,8 @@ algorithm:
           layer: [512]
 
     net_arch:
-      pi: [512, 512]
-      qf: [512, 512]
+      pi: [512, 256]
+      qf: [512, 256]
     activation_fn: relu
     optimizer_kwargs:
       weight_decay: 0.00001
@@ -23,6 +23,7 @@ algorithm:
   train_freq: 10
   verbose: True
   buffer_size: 2000000
+  scene_freq: 3000000
 
 learn:
   total_timesteps: 25000000

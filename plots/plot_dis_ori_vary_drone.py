@@ -162,156 +162,124 @@ label = args.velocity
 # 获取目标位置数据（假设target_all包含位置信息）
 algs = [
     "SHAC",
-    "PPO",
+    "PPO", 
     "elastic",
 ]
 
-trajs = ["D", "B", "8"]
-vs = ["1.5", "3.0"]
+# 设置单一轨迹和速度条件
+target_traj = "8"  # 可以修改为需要的轨迹
+target_velocity = "1.5"  # 可以修改为需要的速度
 
-mean_oris = []
-std_oris = []
-mean_distances = []
-std_ditances = []
-fig, axes = FigFon.get_figure_axes(SubFigSize=(3, len(vs)*len(trajs)), Column=2, HeightScale=1.1,
-                                   sharey=False, Border=[0,0,1,0.95], sharex="col")
+# 创建3x3的子图布局：3个指标 x 3个算法
+fig, axes = FigFon.get_figure_axes(SubFigSize=(3, 3), Column=1, HeightScale=1.0,
+                                   sharey=False, Border=[0,0,1,1], sharex=True)
 
 file_folder = (os.path.dirname(os.path.abspath(sys.argv[0])).split("obj_track")[0]
                + "/obj_track/exps/vary_v/saved/objTracking/test/")
 
-# Pre-compute curvatures for each trajectory type
-trajectory_curvatures = {
-    "D": [None, None],
-    "B": [None, None],
-    "8": [None, None]
-}
-for traj in trajs:
-    for v_i, v in enumerate(vs):
+# 计算目标轨迹的曲率
+sample_data = th.load(file_folder + "{}_{}_SHAC_Dis3.0.pth".format(target_traj, target_velocity))
+target_positions = th.stack([tar for tar in sample_data["target_all"]]).squeeze()[:, 0, :]
 
-        # Load one file to get the target trajectory (same for all algorithms and velocities)
-        sample_data = th.load(file_folder + "{}_{}_SHAC_Dis3.0.pth".format(traj, v))
-        target_positions = th.stack([tar for tar in sample_data["target_all"]]).squeeze()[:, 0, :]
+# Compute curvature for this trajectory
+curvature = compute_curvature_vector(
+    target_positions[:, 0].cpu().numpy(),
+    target_positions[:, 1].cpu().numpy()
+)
+
+# 为每个子图添加曲率背景
+if all(th.stack(sample_data["t"])[:,0] == 0):
+    t_background = th.arange(0, len(sample_data["t"]))*0.03
+else:
+    t_background = th.stack(sample_data["t"])[:,0]
+
+t_numpy = t_background.cpu().numpy() if hasattr(t_background, 'cpu') else t_background.numpy()
+
+# Add curvature backgrounds to all subplots
+for row in range(3):  # 3 metrics
+    for col in range(3):  # 3 algorithms
+        add_curvature_background(axes[row, col], t_numpy, curvature)
+
+# 主绘图循环：为每个算法绘制所有飞机的轨迹
+for alg_i, alg in enumerate(algs):
+    # 加载当前算法的数据
+    data = th.load(file_folder + "{}_{}_{}_{}.pth".format(target_traj, target_velocity, alg, "Dis3.0"))
+    
+    # 提取数据
+    distance = th.stack([tar for tar in data["target_dis_all"]])
+    ori = th.stack([cen for cen in data["center_all"]])[:,:,:2]
+    x_ori, y_ori = ori[..., 0], ori[..., 1]
+    
+    # 处理时间数据
+    if all(th.stack(data["t"])[:,0] == 0):
+        t = th.arange(0, len(data["t"]))*0.03
+    else:
+        t = th.stack(data["t"])[:,0]
+    
+    # 处理距离数据
+    distance = distance - 3
+    
+    # 获取所有飞机的数量
+    num_drones = x_ori.shape[1]
+    
+    # 为每个飞机绘制轨迹
+    for drone_i in range(num_drones):
+        # 生成颜色：为每个飞机使用不同的颜色，但同一算法内保持一致的色系
+        drone_alpha = 0.3 + 0.7 * (drone_i / max(1, num_drones - 1))  # 透明度从0.3到1.0
+        if alg_i == 0:  # SHAC - 蓝色系
+            drone_color = plt.cm.Blues(drone_alpha)
+        elif alg_i == 1:  # PPO - 橙色系
+            drone_color = plt.cm.Oranges(drone_alpha) 
+        else:  # Elastic - 绿色系
+            drone_color = plt.cm.Greens(drone_alpha)
+        drone_color = plt.cm.Blues(drone_alpha)
         
-        # Compute curvature for this trajectory
-        curvature = compute_curvature_vector(
-            target_positions[:, 0].cpu().numpy(),
-            target_positions[:, 1].cpu().numpy()
-        )
-        trajectory_curvatures[traj][v_i] = curvature
-
-# Add curvature backgrounds first, before the data plotting
-for traj_i, traj in enumerate(trajs):
-    for v_i, v in enumerate(vs):
-        curvature = trajectory_curvatures[traj][v_i].copy()  # Make a copy to avoid modifying original
-        # Adjust curvature intensity for different velocities
-        if v_i == 1:
-            curvature_scale = 1.5  # More controlled scaling factor
-            curvature = curvature * curvature_scale
+        # 绘制当前飞机的轨迹到对应的子图
+        # Row 0: x_ori (水平误差)
+        plot_with_missing_data_detection(axes[0, alg_i], t, x_ori[:, drone_i], 
+                                       f"Quadrotor {drone_i}" if alg_i == 0 and drone_i < 5 else "", 
+                                       color=drone_color)
         
-        # Load one file to get time data for this trajectory and velocity
-        sample_data = th.load(file_folder + "{}_{}_SHAC_Dis3.0.pth".format(traj, v))
-        if all(th.stack(sample_data["t"])[:,0] == 0):
-            t = th.arange(0, len(sample_data["t"]))*0.03
-        else:
-            t = th.stack(sample_data["t"])[:,0]
+        # Row 1: y_ori (垂直误差)  
+        plot_with_missing_data_detection(axes[1, alg_i], t, y_ori[:, drone_i], 
+                                       "", color=drone_color)
         
-        # Normalize time to [0, 1] for consistent curvature background mapping
-        t_numpy = t.cpu().numpy() if hasattr(t, 'cpu') else t.numpy()
-        # get current x lim
-        col_idx = traj_i * 2 + v_i
-        add_curvature_background(axes[0, col_idx], t_numpy, curvature)
-        add_curvature_background(axes[1, col_idx], t_numpy, curvature)
-        add_curvature_background(axes[2, col_idx], t_numpy, curvature)
+        # Row 2: distance (距离误差)
+        plot_with_missing_data_detection(axes[2, alg_i], t, distance[:, drone_i], 
+                                       "", color=drone_color)
 
-for v_i , v in enumerate(vs):
-    for traj_i, traj in enumerate(trajs):
-        for alg_i, alg in enumerate(algs):
-            data = th.load(file_folder + "{}_{}_{}_{}.pth".format(traj, v, alg, "Dis3.0"))
-            distance = th.stack([tar for tar in data["target_dis_all"]])
-            ori = th.stack([cen for cen in data["center_all"]])[:,:,:2]
-            x_ori, y_ori = ori[..., 0], ori[..., 1]
-            mean_x_ori, std_x_ori = x_ori.mean(dim=1), x_ori.std(dim=1)
-            mean_y_ori, std_y_ori = y_ori.mean(dim=1), y_ori.std(dim=1)
-            max_x_ori, min_x_ori = x_ori.max(dim=1).values, x_ori.min(dim=1).values
-            max_y_ori, min_y_ori = y_ori.max(dim=1).values, y_ori.min(dim=1).values
-            # mean_ori, std_ori = ori.mean(dim=1), ori.std(dim=1)
-            # max_ori, min_ori = ori.max(dim=1).values, ori.min(dim=1).values
-            if all(th.stack(data["t"])[:,0] == 0):
-                t = th.arange(0, len(data["t"]))*0.03
-            else:
-                t = th.stack(data["t"])[:,0]
-            states = th.stack(data["state_all"])[:,:,:3]
-            # distance = (target_positions-states).norm(dim=-1)
-            distance = distance - 3
-            mean_distance, std_distance = distance.mean(dim=-1), distance.std(dim=-1)
-            max_distance, min_distance = distance.max(dim=-1).values, distance.min(dim=-1).values
-            mean_distances.append(mean_distance)
-            std_ditances.append(std_distance)
-
-            best_i = 3
-            
-            # Get color for this algorithm (consistent across all plots)
-            alg_colors = colors[:3] # Default matplotlib colors
-            if alg_i < len(alg_colors):
-                line_color = alg_colors[alg_i]
-            else:
-                line_color = None
-            
-            # Use the new plotting function that detects missing data segments
-            plot_with_missing_data_detection(axes[0, traj_i * 2 + v_i], t, x_ori[:,best_i], algs[alg_i], color=line_color)
-            plot_with_missing_data_detection(axes[1, traj_i * 2 + v_i], t, y_ori[:,best_i], algs[alg_i], color=line_color)
-            plot_with_missing_data_detection(axes[2, traj_i * 2 + v_i], t, distance[:,best_i], algs[alg_i], color=line_color)
-            
-            # Original plotting code (commented out)
-            # axes[0, traj_i * 2 + v_i].plot(t, x_ori[:,best_i], label=label)
-            # axes[1, traj_i * 2 + v_i].plot(t, y_ori[:,best_i], label=label)
-            # axes[2, traj_i * 2 + v_i].plot(t, distance[:,best_i], label=label)
-            # plot_with_error_band(axes[0, traj_i*2+v_i], t, mean_x_ori, max_x_ori, min_x_ori)
-            # plot_with_error_band(axes[1, traj_i*2+v_i], t, mean_y_ori, max_y_ori, min_y_ori)
-            # plot_with_error_band(axes[2, traj_i*2+v_i], t, mean_distance, max_distance,min_distance)
-            # axes[2, traj_i * 2 + v_i].set_ylim(-0., 2)
-
-# 为每列的最底行添加x轴标签
-for col_idx in range(len(vs) * len(trajs)):
-    axes[2, col_idx].set_xlabel("Time (s)")
+# 设置轴标签和标题
+# 设置行标签（左侧y轴标签）
 axes[0,0].set_ylabel("$e_{H}$")
 axes[1,0].set_ylabel("$e_{V}$")
 axes[2,0].set_ylabel("$e_{d}$")
 
+# 设置列标签（顶部标题）
+alg_display_names = ["Ours", "PPO", "Elastic"]
+for col_idx, alg_name in enumerate(alg_display_names):
+    axes[0, col_idx].set_title(alg_name)
+
+# 设置底部行的x轴标签
+for col_idx in range(3):
+    axes[2, col_idx].set_xlabel("Time (s)")
+
+# 添加主标题显示轨迹和速度信息
+# fig.suptitle("Trajectory {} at v={}m/s - All Drones Performance".format(target_traj, target_velocity), 
+#              fontsize=10, y=0.98)
+
+# 设置y轴范围（可根据需要调整）
+for col_idx in range(3):
+    axes[0, col_idx].set_ylim(-0.2, 0.2)  # 水平误差
+    axes[1, col_idx].set_ylim(-0.1, 0.7)  # 垂直误差  
+    axes[2, col_idx].set_ylim(-1, 1)       # 距离误差
+
+# 添加图例（只为第一列的第一个子图添加，显示前5个飞机）
 handles, labels = axes[0,0].get_legend_handles_labels()
-algs = ["Ours", "PPO", "Elastic"]
-FigFon.set_shared_legend(handles, algs)
-
-# 为每组轨迹添加主标题
-fig.text(0.20, 0.97, "Trajectory {}".format(trajs[0]), ha='center', va='center', fontsize=8, weight='bold')
-fig.text(0.52, 0.97, "Trajectory {}".format(trajs[1]), ha='center', va='center', fontsize=8, weight='bold')
-fig.text(0.85, 0.97, "Trajectory {}".format(trajs[2]), ha='center', va='center', fontsize=8, weight='bold')
-
-# 为每个子图添加速度标题
-axes[0,0].set_title("$v={}m/s$".format(vs[0]))
-axes[0,1].set_title("$v={}m/s$".format(vs[1]))
-axes[0,2].set_title("$v={}m/s$".format(vs[0]))
-axes[0,3].set_title("$v={}m/s$".format(vs[1]))
-axes[0,4].set_title("$v={}m/s$".format(vs[0]))
-axes[0,5].set_title("$v={}m/s$".format(vs[1]))
-
-axes[0,0].set_ylim(-0.15,0.15)
-axes[0,1].set_ylim(-0.5,0.5)
-axes[0,2].set_ylim(-0.15,0.15)
-axes[0,3].set_ylim(-0.5,0.5)
-axes[0,4].set_ylim(-0.15,0.15)
-axes[0,5].set_ylim(-0.5,0.5)
-
-axes[2,0].set_ylim(-1,1)
-axes[2,1].set_ylim(-2,2)
-axes[2,2].set_ylim(-1,1)
-axes[2,3].set_ylim(-2,2)
-axes[2,4].set_ylim(-1,1)
-axes[2,5].set_ylim(-2,2)
+FigFon.set_shared_legend(handles=handles,labels=labels, )
 
 current_folder = os.path.dirname(os.path.abspath(__file__))
 save_folder = current_folder.split("obj_track")[0] + "obj_track/plots/"
 
-fig.savefig("{}vary_traj_all_{}.png".format(save_folder, best_i))
+fig.savefig("{}all_drones_{}_{}.png".format(save_folder, target_traj, target_velocity.replace(".", "_")))
 
 # plt.show()

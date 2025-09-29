@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument("--env", "-e", type=str, default="objTracking")
     parser.add_argument("--seed", "-s", type=int, default=42)
     parser.add_argument("--weight", "-w", type=str, default=None, )
-    parser.add_argument("--traj", "-tr", type=str, default="1", )
+    parser.add_argument("--traj", "-tr", type=str, default="D", )
     parser.add_argument("--velocity", "-v", type=float, default=3.0, )
     return parser
 
