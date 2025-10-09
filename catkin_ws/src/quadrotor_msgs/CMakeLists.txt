@@ -20,6 +20,7 @@ add_message_files(
   AuxCommand.msg
   Px4ctrlDebug.msg
   TakeoffLand.msg
+  Command.msg
 )
 
 generate_messages(

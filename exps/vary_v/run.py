@@ -16,10 +16,16 @@ import argparse
 from VisFly.utils.common import load_yaml_config
 import json
 from exps.test.tracking.test import Test as tracking_test
-
+import yaml
 
 # th.autograd.set_detect_anomaly(True)
-
+"""
+   Current Best: SHAC_NoCaliHeadV_Pos_Dis3.0_spd3.4_lessNoise_2.zip
+   others: SHAC_NoCaliHeadV_Pos_Dis1.5_spd3.4_lessNoise_1.zip for distance 1.5
+   SHAC_NoCaliHeadV_Dis4.5_6.zip
+   SHAC_deploy_5.zip
+   PPO_NoRand_1.zip
+"""
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run experiments', add_help=False)
@@ -29,8 +35,9 @@ def parse_args():
     parser.add_argument("--env", "-e", type=str, default="objTracking")
     parser.add_argument("--seed", "-s", type=int, default=42)
     parser.add_argument("--weight", "-w", type=str, default=None, )
-    parser.add_argument("--traj", "-tr", type=str, default="1", )
-    parser.add_argument("--velocity", "-v", type=float, default=3.0, )
+    parser.add_argument("--traj", "-tr", type=str, default="8", )
+    parser.add_argument("--velocity", "-v", type=float, default=1.0, )
+    parser.add_argument("--distance", "-d", type=float, default=3.0, )
     return parser
 
 
@@ -45,49 +52,33 @@ alg_alias = {
 }
 
 
-def change_v_in_json(json_file, vel):
+def change_v_in_json(json_file, vel, dis):
     path = os.path.dirname(os.path.abspath(__file__)) + f'/configs/obj/{json_file}/cubic.json'
+    env_path = os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/objTracking.yaml'
     with open(path, 'r') as file:
         data = json.load(file)
         data["objects"][0]["velocity"]["kwargs"]["mean"] = vel
-
     with open(path, 'w') as file:
         json.dump(data, file, indent=2)
 
+    with open(env_path, 'r') as file:
+        env_data = yaml.safe_load(file)
+        env_data["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = path
+        env_data["env"]["random_kwargs"]["state_generator"]["kwargs"][0]["min_dis"] = dis-0.001
+        env_data["env"]["random_kwargs"]["state_generator"]["kwargs"][0]["max_dis"] = dis+0.001
 
-def get_env(env, traj, v, is_train=False):
-    # script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    # save_folder = script_dir + f"/saved/{env}/"
-
-    env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{env}.yaml')
-    env_config["eval_env"]["scene_kwargs"]["obj_settings"]["path"] = traj
-
-    change_v_in_json(traj, v)
-
-    env_config["env"]["random_kwargs"]["state_generator"]["kwargs"][0]["position"]["half"] = [1.0, 1.0, 0.1]
-    if not is_train:
-        env_config["eval_env"]["visual"] = True
-
-    if is_train:
-        env = env_alias[env](
-            **env_config["env"]
-        )
-    else:
-        env = env_alias[env](
-            **env_config["eval_env"]
-        )
-
-    return env
-
+    with open(env_path, 'w') as file:
+        yaml.dump(env_data, file, default_flow_style=False, sort_keys=False)
 
 def main(
         traj,
         velocity,
+        distance=3.0,
         env="objTracking",
-        algorithm="BPTT",
+        algorithm="SHAC",
         weight=None,
         ROS_wrapper=None,
-        comment="BPTT",
+        comment=None,
         debug=False,
 ):
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -104,8 +95,9 @@ def main(
         env_config["eval_env"]["dynamics_kwargs"] = env_config["eval_env"].get("dynamics_kwargs", {})
         env_config["eval_env"]["dynamics_kwargs"]["action_type"] = "position"
         print(f"[INFO] Modified action_type to 'position' for elastic mode")
+    comment = comment if comment else algorithm
 
-    change_v_in_json(traj, velocity)
+    change_v_in_json(traj, velocity, distance)
 
     eval_env = env_alias[env](
         **env_config["eval_env"]
@@ -122,10 +114,11 @@ def main(
             **config["algorithm"]
         )
     # from test import Test as tracking_test
+    print("--------------------debug:enter the main")
     test_handle = tracking_test(
         model=model,
         save_path=save_folder + "/test",
-        name=weight if weight else str.join("_", [str(velocity), traj, comment],
+        name=f"{weight}_v{velocity}_traj{traj}" if weight else str.join("_", [str(velocity), traj, comment],
         )
     )
     if ROS_wrapper:
@@ -134,8 +127,12 @@ def main(
         config["test"]["is_fig_save"] = False
         config["test"]["is_fig"] = False
     r = test_handle.test(ROS_wrapper=ROS_wrapper, debug=debug, comment=comment, **config["test"])
-    if debug:
+    if ROS_wrapper:
+        # When using ROS_wrapper, the test function runs an infinite loop
+        # and never returns, so we should return here
         return r
+    # if debug:
+    #     return r
     # save state_all and obs_all together in one file name with velocity
 
     for i in test_handle.obs_all:
@@ -143,6 +140,8 @@ def main(
         for key in list(i.keys()):
             if "color" in key or "depth" in key or "semantic" in key:
                 del i[key]
+
+    pth_path = save_folder + f"/test/{traj}_{velocity}_{comment}_Dis{distance}.pth"
     th.save({
         "state_all": test_handle.state_all,
         "obs_all": test_handle.obs_all,
@@ -151,15 +150,29 @@ def main(
         "collision_all": test_handle.collision_all,
         "reward_all": test_handle.reward_all,
         "action_all": test_handle.action_all,
+        "target_dis_all": test_handle.target_dis_all,
+        "center_all": test_handle.center_all,
         # "info_all": test_handle.info_all
     },
-        save_folder + f"/test/{traj}_{velocity}.pth"
+        pth_path
     )
     print("======================================================================")
-    print(f"Test results saved to {save_folder}/test/{traj}_{velocity}_{comment}.pth")
+    print(f"Test results saved to {pth_path}")
     print("======================================================================")
+
+
+def auto_get_distance_from_name(weight):
+    """
+    Extract distance from the weight name.
+    Example: SHAC_NoCaliHeadV_Pos_Dis3.0_spd3.4_lessNoise_2.zip -> 3.0
+    """
+    if "Dis" in weight:
+        return float(weight.split("Dis")[1].split("_")[0])
+    else:
+        return 3.0  # Default distance if not found
 
 
 if __name__ == "__main__":
     args = parse_args().parse_args()
-    main(velocity=args.velocity, traj=args.traj, algorithm=args.algorithm, env=args.env, weight=args.weight)
+    distance = auto_get_distance_from_name(args.weight) if args.weight else args.distance
+    main(velocity=args.velocity, traj=args.traj, algorithm=args.algorithm, env=args.env, weight=args.weight, distance=distance)

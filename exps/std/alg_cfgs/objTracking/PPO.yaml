@@ -5,11 +5,12 @@ algorithm:
     features_extractor_kwargs:
       net_arch:
         state:
-          mlp_layer: [256]
+          layer: [512]
+#          layer: []
 
     net_arch:
-      pi: [256, 256]
-      vf: [256, 256]
+      pi: [512, 256]
+      vf: [512, 256]
     activation_fn: relu
     optimizer_kwargs:
       weight_decay: 0.00001
@@ -22,9 +23,10 @@ algorithm:
   n_steps: 256
   batch_size: 65536
   verbose: 1
+  scene_freq: 3000000
 
 learn:
-  total_timesteps: 20000000
+  total_timesteps: 25000000
 
 test:
   is_fig: True

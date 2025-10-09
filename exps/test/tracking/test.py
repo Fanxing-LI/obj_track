@@ -8,6 +8,8 @@ from VisFly.utils.FigFashion.FigFashion import FigFon
 import torch as th
 import copy, cv2
 
+from VisFly.utils.policies.td_policies import obs_as_tensor
+
 
 class Test(TestBase):
     def __init__(self,
@@ -17,10 +19,12 @@ class Test(TestBase):
                  ):
         super(Test, self).__init__(model=model, name=name, save_path=save_path, )
         self.target_all = []
+        self.target_dis_all = []
+        self.center_all = []
 
     def draw(self, names=None):
         state_data = th.stack(self.state_all).cpu()
-        targets = th.stack(self.target_all)
+        targets_dis = th.stack(self.target_dis_all)
         action = th.stack([th.tensor(a) for a in self.action_all]).cpu()
         t = np.stack(self.t)[:, 0]
         for i in range(self.model.env.num_envs):
@@ -42,7 +46,7 @@ class Test(TestBase):
             plt.plot(t[:-1], action[:, i, :], label=["a", "awx", "awy", "awz"])
             plt.legend()
             plt.subplot(2, 3, 6)
-            plt.plot(t, targets[:, i], label="target")
+            plt.plot(t, targets_dis[:, i], label="target")
             plt.legend()
             plt.tight_layout()
             plt.show()
@@ -71,32 +75,37 @@ class Test(TestBase):
             debug=False,
             comment="",
     ):
-        if is_fig_save:
-            if not is_fig:
-                raise ValueError("is_fig_save must be True if is_fig is True")
+        print(f"--------------------debug: enter test")
+
+        # if is_fig_save:
+        #     if not is_fig:
+        #         raise ValueError("is_fig_save must be True if is_fig is True")
 
         if policy is None:
             policy = self.model.policy
         env = self.env
         if ROS_wrapper:
-            ROS_env = ROS_wrapper(env, comment=comment)
-            policy = ROS_env  # 修复：policy应该指向env实例，而不是ROS_wrapper类
+            ROS_env = ROS_wrapper(env, comment=comment)  # Replace env with ROS-wrapped version
+            # ROS_env handles action/observation communication
             
         if debug:
             return env
         # done_all = th.full((env.num_envs,), False)
+        print(f"--------------------debug: enter test and before reset")
         obs = env.reset(is_test=True)
+        print(f"--------------------debug: enter test and finish reset")
 
         self._img_names = [name for name in obs.keys() if (("color" in name) or ("depth" in name) or ("semantic" in name))]
         if env.envs.dynamic_object_position[0][0] is not None:
             start_obj_pos = env.envs.dynamic_object_position[0].clone()
         self.obs_all.append(obs)
         if env.envs.dynamic_object_position[0][0] is not None:
-            self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
+            self.center_all.append(env.box_center.clone())
         self.state_all.append(env.state)
         self.info_all.append([{} for _ in range(env.num_envs)])
         self.t.append(env.t.clone())
-        self.target_all.append((env.target - env.position).norm(dim=1))
+        self.target_dis_all.append((env.target - env.position).norm(dim=1))
+        self.target_all.append((env.target))
         self.collision_all.append({"col_dis": env.collision_dis,
                                    "is_col": env.is_collision,
                                    "col_pt": env.collision_point})
@@ -105,9 +114,14 @@ class Test(TestBase):
         self.eq_l = []
         roun = 0
         prev_len = 0
+        print("enter the loop")
         while True:
             with th.no_grad():
-                action = policy.predict(obs, deterministic=True)
+                if ROS_wrapper:
+                    # For ROS wrapper, use its predict method which handles action communication
+                    action = ROS_env.predict(obs, deterministic=True)
+                else:
+                    action = policy.predict(obs, deterministic=True)
                 # action = policy.predict(obs, deterministic=True)
                 if isinstance(action, tuple):
                     action = action[0]
@@ -128,14 +142,16 @@ class Test(TestBase):
             self.state_all.append(state)
             self.obs_all.append(obs)
             if env.envs.dynamic_object_position[0][0] is not None:
-                self.obs_all[-1]["center"] = copy.deepcopy(env.box_center)
+                self.center_all.append(env.box_center.clone())
             self.info_all.append(copy.deepcopy(info))
-            self.target_all.append((env.target - env.position).norm(dim=1))
+            self.target_dis_all.append((env.target - env.position).norm(dim=1))
+            self.target_all.append((env.target))
             self.t.append(env.t.clone())
             if env.visual:
                 # render_kwargs["points"] = th.atleast_2d(env.target)
                 imgs = env.render(**render_kwargs)
-                if is_sub_video and len(self._img_names) > 0:
+                obs = obs_as_tensor(obs, device="cpu")
+                if is_sub_video and len(self._img_names) > 0 and False:
                 # add subvideo at right lower of the image
                     edge = 0.01
                     shape_img = imgs[0].shape[:2]
@@ -178,7 +194,8 @@ class Test(TestBase):
                     roun += 1
                     prev_len = len(self.reward_all)
 
-            if roun==1:
+            print(len(self.reward_all), len(agent_index))
+            if roun==1 and len(self.reward_all)>=300:
                 break
 
         mean_r = th.as_tensor(self.eq_r, dtype=th.float32).mean().item()
