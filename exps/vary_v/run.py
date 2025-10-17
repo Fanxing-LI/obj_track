@@ -77,13 +77,13 @@ def main(
         env="objTracking",
         algorithm="SHAC",
         weight=None,
-        ROS_wrapper=None,
+        ROS=None,
         comment=None,
         debug=False,
 ):
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     save_folder = script_dir + f"/saved/{env}/"
-    if ROS_wrapper:
+    if ROS:
         save_folder = f"/home/lfx-desktop/files/obj_track/exps/vary_v/saved/{env}"
     config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/alg_cfgs/{env}/{algorithm}.yaml')
     env_config = load_yaml_config(os.path.dirname(os.path.abspath(__file__)) + f'/env_cfgs/{env}.yaml')
@@ -121,19 +121,13 @@ def main(
         name=f"{weight}_v{velocity}_traj{traj}" if weight else str.join("_", [str(velocity), traj, comment],
         )
     )
-    if ROS_wrapper:
+    if ROS:
         config["test"]["is_video"] = False
         # config["test"]["is_video_save"] = False
         config["test"]["is_fig_save"] = False
         config["test"]["is_fig"] = False
-    r = test_handle.test(ROS_wrapper=ROS_wrapper, debug=debug, comment=comment, **config["test"])
-    if ROS_wrapper:
-        # When using ROS_wrapper, the test function runs an infinite loop
-        # and never returns, so we should return here
-        return r
-    # if debug:
-    #     return r
-    # save state_all and obs_all together in one file name with velocity
+        return eval_env
+    r = test_handle.test(ROS_wrapper=ROS, debug=debug, comment=comment, **config["test"])
 
     for i in test_handle.obs_all:
         # remove all the image obs

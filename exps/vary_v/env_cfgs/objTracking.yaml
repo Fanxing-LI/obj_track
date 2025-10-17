@@ -64,7 +64,7 @@ env:
 eval_env:
   max_episode_steps: 4096
   num_scene: 1
-  num_agent_per_scene: 4
+  num_agent_per_scene: 1
   box_noise: 1
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty
