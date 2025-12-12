@@ -67,7 +67,9 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
             tensor_output: bool = False,
             keep_dis=3.0,
             box_noise=1.0,
-            semantic_id =2
+            semantic_id =2,
+            *args,
+            **kwargs,
     ):
         assert "obj_settings" in scene_kwargs, "scene_kwargs must contain 'obj_settings' for ObjectTrackingEnv"
 
@@ -84,6 +86,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
             device=device,
             max_episode_steps=max_episode_steps,
             tensor_output=tensor_output,
+            *args,
+            **kwargs
 
         )
         self.target = th.zeros((self.num_envs, 3), dtype=th.float32, device=self.device)
@@ -95,8 +99,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         # self.update_target()
         self.observation_space["state"] = spaces.Box(
             shape=(16,), low=-th.inf, high=th.inf, dtype=np.float32)
-        # self.observation_space["state"] = spaces.Box(
-        #     shape=(19,), low=-th.inf, high=th.inf, dtype=np.float32)
+        self.observation_space["state"] = spaces.Box(
+            shape=(19,), low=-th.inf, high=th.inf, dtype=np.float32)
         test = 1
         # self.update_target()
         self.keep_dis = keep_dis
@@ -115,69 +119,24 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.update_target()
         return res
 
-    def _reset_attr(self, indices=None):
-        super()._reset_attr(indices)
-
-        indices = indices if indices is not None else th.arange(self.num_envs, device=self.device)
-        box_center_cache = get_batch_mask_centers_torch(th.tensor(self.sensor_obs["semantic"] == self.semantic_id).squeeze(dim=1))
-        for i in indices:
-            center = box_center_cache[i]
-            if center is not None:
-                self.pre_box_center[i, 0] = (center[0] - self._intrinsic.cx) / self._intrinsic.fx * 2
-                self.pre_box_center[i, 1] = (center[1] - self._intrinsic.cy) / self._intrinsic.fy * 2
-                self.pre_box_center[i, 2] = th.tensor(self.sensor_obs["depth"][i, 0, int(center[1]), int(center[0])])  # Normalize depth
-
     def update_target(self):
-        if not hasattr(self, "_intrinsic"):
-            h, w = self.sensor_obs["depth"].shape[-2:]
-            s = max(h, w)
-            self._intrinsic = intrinsic(fx=s, fy=s, cx=w / 2, cy=h / 2).to(self.device)
-
         # update target position and velocity
         self.target = th.stack([p[0] for p in self.envs.dynamic_object_position])
         self.target_v = th.stack([v[0] for v in self.envs.dynamic_object_velocity])
-
-        # update target position and velocity in camera frame
-        h, w = self.sensor_obs["semantic"].shape[-2:]
-        box_center_cache = get_batch_mask_centers_torch(th.tensor(self.sensor_obs["semantic"] == self.semantic_id).squeeze(dim=1))
-        for i, center in enumerate(box_center_cache):
-            if center is not None:
-                self.box_center[i, 0] = (center[0] - self._intrinsic.cx) / self._intrinsic.fx * 2
-                self.box_center[i, 1] = (center[1] - self._intrinsic.cy) / self._intrinsic.fy * 2
-                self.box_center[i, 2] = th.tensor(self.sensor_obs["depth"][i, 0, int(center[1]), int(center[0])])
-
-        self.box_velocity = (self.box_center - self.pre_box_center) / self.envs.dynamics.ctrl_dt
-        if not hasattr(self, "pre_box_v"):
-            self.pre_box_v = self.box_velocity.clone()
-        self.box_acc = (self.box_velocity - self.pre_box_v) / self.envs.dynamics.ctrl_dt
-        self.pre_box_center = self.box_center.clone()
-        self.pre_box_v = self.box_velocity.clone()
-
-        # update rebuilt position and velocity in local frame from camera frame
-        self.rebuild_local_targets = self.box_center[:, 2:] * th.stack([
-                    th.ones_like(self.box_center[:,1]),
-                    -self.box_center[:,0],
-                    -self.box_center[:,1]
-                ]).T
-        self.rebuild_local_targets_v = (self.rebuild_local_targets - self.pre_rebuild_local_targets) / self.envs.dynamics.ctrl_dt
-        self.pre_rebuild_local_targets = self.rebuild_local_targets.clone()
-
+        self.target_acc = th.stack([a[0] for a in self.envs.dynamic_object_acceleration])
         # update target position and velocity in local frame
         rela_tar = self.target - self.position
         orientation = self.envs.dynamics._orientation.clone()
-        self.local_targets = orientation.inv_rotate(rela_tar.T).T
-        add_local_target_v = th.cross(self.angular_velocity-0, self.local_targets-0, dim=1)
         rela_v = self.target_v - self.velocity
-        self.local_targets_v = orientation.inv_rotate(rela_v.T).T - add_local_target_v
-        self.rebuild_local_targets_v = self.rebuild_local_targets_v
-        self.local_v = orientation.inv_rotate(self.velocity.T-0).T-0
+        rela_a = self.target_acc - self.envs.acceleration
+        # self.local_targets_v = orientation.inv_rotate(rela_v.T).T - add_local_target_v
+        # self.rebuild_local_targets_v = self.rebuild_local_targets_v
+        # self.local_v = orientation.inv_rotate(self.velocity.T-0).T-0
 
         self.head_targets = orientation.world_to_head(rela_tar.T).T
-        if not hasattr(self, "pre_head_targets"):
-            self.pre_head_targets = self.head_targets.clone()
         self.head_targets_v = orientation.world_to_head((rela_v.T-0)).T
-        # cali_head_vel = th.cross(self.angular_velocity * th.tensor([[0, 0, 1]]), self.head_targets)
-        # self.head_targets_v = self.head_targets_v #- cali_head_vel
+        self.head_targets_a = orientation.world_to_head((rela_a.T-0)).T
+
         self.head_v = orientation.world_to_head((self.velocity.T-0)).T
         test = 1
 
@@ -190,6 +149,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         state = th.hstack([
             self.head_targets+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 2 * self.box_noise,
             self.head_targets_v+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 10 * self.box_noise,
+            self.head_targets_a+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 10 * self.box_noise,
             # self.head_targets+th.sin(2*th.pi*self.t).unsqueeze(1)*0.05 * self.box_noise,
             # self.head_targets_v-th.sin(2*th.pi*self.t).unsqueeze(1)*0.2 * self.box_noise,
             self.orientation,
@@ -202,45 +162,85 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         obs = TensorDict({
             "state": state,
-            "depth": th.as_tensor(self.sensor_obs["depth"]).clamp(0.2, 10),
-            "semantic": th.as_tensor(self.sensor_obs["semantic"].astype(np.float32)),
+            # "depth": th.as_tensor(self.sensor_obs["depth"]).clamp(0.2, 10),
+            # "semantic": th.as_tensor(self.sensor_obs["semantic"].astype(np.float32)),
         })
 
         if "color" in self.sensor_obs:
             obs["color"] = th.as_tensor(self.sensor_obs["color"].astype(np.float32))
+        if "depth" in self.sensor_obs:
+            obs["depth"] = 1/(1+th.as_tensor(self.sensor_obs["depth"])/4)
+        if "depth2" in self.sensor_obs:
+            obs["depth2"] = th.as_tensor(self.sensor_obs["depth2"])
 
         return obs
 
     def get_success(self) -> th.Tensor:
         return th.full((self.num_agent,), False)
 
-    def get_reward(self) -> th.Tensor:
+    def get_reward(self, *args, **kwargs) -> th.Tensor:
         base_r = 0.1 * th.ones((self.num_envs,), dtype=th.float32)
         target_vector = self.target - self.position
         normal_target_vector = target_vector / target_vector.norm(dim=1, keepdim=True) - 0
         proj = ((self.direction.clone() - 0) * normal_target_vector - 0).sum(dim=1)
-        aware_r = proj * 0.05
+        aware_r = proj * 0.05 * 1
         # aware_r = proj * 0.05
-        pos_factor = -0.1 * 1 / 9
-        pos_r = (self.position - self.target).norm(dim=1) * pos_factor
-        keep_pos_r = ((self.position - self.target).norm(dim=1) - self.keep_dis).abs() * -0.02
+        target_dis = self.keep_dis * (self.velocity.norm(dim=1)/4).clamp_min(1.0).detach()
+        keep_pos_r = ((self.position - self.target).norm(dim=1) - target_dis).abs() * -0.02
         vel_r = (self.velocity - 0).norm(dim=1) * -0.002
         ang_vel_r = (self.angular_velocity - 0).norm(dim=1) * -0.004
         acc_r = (self.envs.acceleration - 0).norm(dim=1) * -0.001
         ang_acc_r = (self.envs.angular_acceleration - 0).norm(dim=1) * -0.001
-        act_r = self._action[:,1:].norm(dim=1).to(vel_r.device) * -0.003 + self._action[:,2:3].norm(dim=1).to(vel_r.device) * -0.025
+        act_r = (self._action[:,1:].norm(dim=1).to(vel_r.device) * -0.003
+                 + self._action[:,2:3].norm(dim=1).to(vel_r.device) * -0.01)
         # act_change_r = (self.envs.dynamics._pre_action[0].to(self.device).T-
         #                 self._action.to(self.device)
         #                 ).norm(dim=-1) * -0.002
         act_change_r = (self.envs.dynamics._pre_action[-1].to(self.device)-
                         self.envs.dynamics._pre_action[-2].to(self.device)
                         ).T.norm(dim=-1) * -0.001
-        diff_r = vel_r + ang_vel_r + aware_r + keep_pos_r + acc_r+ act_r + act_change_r # + acc_r + ang_acc_r
+
+        # projection v on backward direction
+        unit_v = (self.velocity-0) / ((self.velocity-0).norm(dim=1, keepdim=True)+1e-8)
+        inverse_v_proj = (unit_v * (self.direction-0)).sum(dim=1)
+        percep_r = inverse_v_proj * 0.03 * 1
+
+        # + acc_r + ang_acc_r
+
+        # collision r
+        share_factor_collision = 0.7
+        collision_dis = self.collision_vector.norm(dim=1).clamp_min(0.)
+        collision_dir = self.collision_vector / (collision_dis.unsqueeze(1)+1e-6)
+        # approaching_point = self.envs.approaching_point
+        # velocity
+        thre_vel = 1.5
+        weight = ((thre_vel-collision_dis.detach()).clamp(min=0, )/thre_vel).pow(1)
+        # weight = 1 / (1 + ((thre_vel-collision_dis) * 0.3).clamp(min=0,))
+        col_approach_velocity = (self.velocity * collision_dir.detach()).sum(dim=1).clamp_min(0.)
+        col_vel_r = col_approach_velocity * weight * -1 * share_factor_collision * 0.5
+
+        # position
+        k = 0.015
+        func = lambda x: 12 * k / (x + k)
+        func3 = lambda x: 2.5 * th.log(1 + th.exp(-32 * x))
+        func2 = lambda x: -x
+        col_dis_r = func(collision_dis) * -2 * share_factor_collision
+
         disc_r = base_r
+
+        diff_r = (
+                vel_r + ang_vel_r + aware_r + keep_pos_r + acc_r+ act_r + act_change_r
+                    + percep_r
+                    + col_dis_r + col_vel_r
+        )
 
         reward = diff_r + disc_r
 
         return {"reward":reward,
                 "keep_pos_r":keep_pos_r.clone().detach(),
                 "aware_r":aware_r.clone().detach(),
-                "ang_acc_r":ang_acc_r.clone().detach(),}
+                "ang_acc_r":ang_acc_r.clone().detach(),
+                "percp_r":percep_r.clone().detach(),
+                "col_vel_r":col_vel_r.clone().detach(),
+                "col_dis_r":col_dis_r.clone().detach(),
+                }

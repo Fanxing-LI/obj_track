@@ -6,36 +6,40 @@ algorithm:
       net_arch:
         state:
           layer: [512]
+          # ln: True
 #          bn: True
-#        depth:
-#          channel: [ 32, 64, 128, 256 ]
-#          kernel_size: 4
-#          stride: 2
-#          padding: 1
-#          layer: [ ]
-#          ln: True
-#          bias: False
+        depth:
+          channel: [ 32, 64,128]
+          kernel_size: 2
+          stride: 2
+          padding: 1
+          layer: [256]
 
     critic:
       dist: mse
       n_critics: 2
       net_arch:
-        layer: [512, 256]
+        layer: [512, 512]
 #        bn: True
     actor:
       dist: normal
       net_arch:
-        layer: [512, 256]
+        layer: [512, 512]
 #        bn: True
 
-    activation_fn: relu
-    optimizer_class: adam
+    activation_fn: leaky_relu
+    optimizer_class: adamW
     optimizer_kwargs:
-      weight_decay: 0.00001
+      weight_decay: 0.0001
     share_features_extractor: False
 
-  learning_rate: 0.001
-  horizon: 96
+  learning_rate:
+    class: cosine
+    kwargs:
+      initial: 0.0005
+      final: 0.0001
+      period: 0.1
+  horizon: 192
   tau: 0.005
   gamma: 0.99
   device: cuda
@@ -48,7 +52,7 @@ algorithm:
   scene_freq: 3000000
 
 learn:
-  total_timesteps: 50000000
+  total_timesteps: 100000000
 #  log_interval: 1
 
 test:

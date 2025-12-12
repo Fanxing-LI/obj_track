@@ -6,7 +6,7 @@ from gym import spaces
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from VisFly.utils.policies.extractors import create_mlp, load_extractor_class
 from VisFly.utils.policies.td_policies import obs_as_tensor
-import algorithms.tools as tools
+from . import tools
 # CAP the standard deviation of the actor
 import torch.distributions as torchd
 
@@ -34,7 +34,7 @@ class BaseModel(nn.Module):
     }
     optimizer_alias = {
         "adam": th.optim.Adam,
-        "adamw": th.optim.AdamW,
+        "adamW": th.optim.AdamW,
         "rmsprop": th.optim.RMSprop,
         "sgd": th.optim.SGD
     }
@@ -272,13 +272,14 @@ class Policy(nn.Module):
         "sigmoid": nn.Sigmoid,
         "elu": nn.ELU,
         "silu": nn.SiLU,
+        "leaky_relu": nn.LeakyReLU,
     }
     optim_alias = {
         "adam": th.optim.Adam,
         "rmsprop": th.optim.RMSprop,
         "sgd": th.optim.SGD,
         "adagrad": th.optim.Adagrad,
-        "adamw": th.optim.AdamW,
+        "adamW": th.optim.AdamW,
         "adamax": th.optim.Adamax,
         "asgd": th.optim.ASGD,
         "lbfgs": th.optim.LBFGS,

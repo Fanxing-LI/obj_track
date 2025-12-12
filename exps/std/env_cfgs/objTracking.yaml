@@ -6,25 +6,31 @@ env:
     - sensor_type: DEPTH
       uuid: depth
       resolution:
-        - 64
-        - 64
+        - 12
+        - 16
       position:
         - 0
-        - 0.2
         - 0.0
-    - sensor_type: SEMANTIC
-      uuid: semantic
-      resolution:
-        - 64
-        - 64
-      position:
+        - -0.1
+      orientation:
         - 0
-        - 0.2
-        - 0.0
+        - 0
+        - 0
+#    - sensor_type: SEMANTIC
+#      uuid: semantic
+#      resolution:
+#        - 64
+#        - 64
+#      position:
+#        - 0
+#        - 0.2
+#        - 0.0
   scene_kwargs:
-    path: VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty
+    path: VisFly/datasets/visfly-beta/configs/scenes/box30_mix/box30_high_tree
+#    path: VisFly/datasets/visfly-beta/configs/scenes/box30_mix
+#    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high_empty
     obj_settings:
-      path: cubic
+      path: box30/track/train_slow
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
@@ -42,23 +48,81 @@ env:
           velocity:
             mean: [0.0, 0.0, 0.0]
             half: [1.0, 1.0, 0.2]
+          test: True
 
   visual: True
   device: cpu
   requires_grad: True
   tensor_output: True
   keep_dis: 3.0
+  is_collision_reset: False
 
 eval_env:
   num_scene: 1
-  num_agent_per_scene: 4
+  num_agent_per_scene: 1
+  max_episode_steps: 2048
+
+  sensor_kwargs:
+    - sensor_type: DEPTH
+      uuid: depth
+      resolution:
+        - 12
+        - 16
+      position:
+        - 0
+        - 0.0
+        - -0.1
+      orientation:
+        - 0
+        - 0
+        - 0
+    - sensor_type: COLOR
+      uuid: color
+      resolution:
+        - 64
+        - 64
+      position:
+        - 0
+        - 0.0
+        - -0.1
+
+    - sensor_type: DEPTH
+      uuid: depth2
+      resolution:
+        - 12
+        - 16
+      position:
+        - 0
+        - 0.0
+        - -0.1
+      orientation:
+        - 0
+        - 0
+        - 0
+  random_kwargs:
+    state_generator:
+      #      class: Uniform
+      class: TargetUniform
+      kwargs:
+        - position:
+            mean: [ 5.0, 0.0, 1 ]
+            half: [ 3., 3., 0.4 ]
+          velocity:
+            mean: [ 0.0, 0.0, 0.0 ]
+            half: [ 1.0, 1.0, 0.2 ]
+          test: True
+          max_dis: 2.99
+          min_dis: 3.0
+
   scene_kwargs:
-    path: VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty
+    path: VisFly/datasets/visfly-beta/configs/scenes/box30_0.04tree
+#    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high_empty
     obj_settings:
-      path: cubic
+      path: box30/track/train_slow_test
     render_settings:
       mode: fix
-      view: custom
-      resolution: [1080,1920]
-      position: [[7., 6.8, 8.5], [10, 0, 1.5]]
+      view: top
+      resolution: [1080,1080]
+      position: [[30., 0., 30.5], [0, 0, 1.5]]
       trajectory: True
+
