@@ -1,5 +1,5 @@
 env:
-  num_scene: 32
+  num_scene: 64
   num_agent_per_scene: 8
   max_episode_steps: 2048
   sensor_kwargs:
@@ -36,7 +36,8 @@ env:
     ctrl_dt: 0.03
     ctrl_delay: True
     action_type: "bodyrate"
-    cfg: drone_d435i_n100
+#    cfg: drone_d435i_n100
+    cfg: drone_d435i_jetson_orin_nx
   random_kwargs:
     state_generator:
 #      class: Uniform
@@ -118,7 +119,9 @@ eval_env:
     path: VisFly/datasets/visfly-beta/configs/scenes/box30_0.04tree
 #    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high_empty
     obj_settings:
-      path: box30/track/train_slow_test
+#      path: box30/track/train_slow_test
+      path: box30/track/train_slow_test_straight
+#      path: box30/track/train_fast_test_straight
     render_settings:
       mode: fix
       view: top

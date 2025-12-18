@@ -115,7 +115,6 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
     def reset(self, *args, **kwargs) -> Union[TensorDict, Tuple[TensorDict, Dict]]:
         res = super().reset( *args, **kwargs)
-
         self.update_target()
         return res
 
@@ -175,40 +174,51 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         return obs
 
+    def detach(self):
+        super().detach()
+        self._pre_acc = self._pre_acc.detach()
+
     def get_success(self) -> th.Tensor:
         return th.full((self.num_agent,), False)
 
     def get_reward(self, *args, **kwargs) -> th.Tensor:
+        if not hasattr(self, "_pre_acc"):
+            self._pre_acc = self.envs.acceleration.clone()
+
         base_r = 0.1 * th.ones((self.num_envs,), dtype=th.float32)
         target_vector = self.target - self.position
         normal_target_vector = target_vector / target_vector.norm(dim=1, keepdim=True) - 0
         proj = ((self.direction.clone() - 0) * normal_target_vector - 0).sum(dim=1)
-        aware_r = proj * 0.05 * 1
+        aware_r = proj * 0.06 * 0.6
         # aware_r = proj * 0.05
-        target_dis = self.keep_dis * (self.velocity.norm(dim=1)/4).clamp_min(1.0).detach()
-        keep_pos_r = ((self.position - self.target).norm(dim=1) - target_dis).abs() * -0.02
-        vel_r = (self.velocity - 0).norm(dim=1) * -0.002
-        ang_vel_r = (self.angular_velocity - 0).norm(dim=1) * -0.004
+        align_v = self.target_v if hasattr(self, "target_v") else self.velocity
+        target_dis = self.keep_dis * (align_v.norm(dim=1)/4).clamp_min(1.0).detach()
+        keep_pos_r = ((self.position - self.target).norm(dim=1) - target_dis).abs() * -0.025
+        vel_r = (self.velocity - 0).norm(dim=1) * -0.001
+        ang_vel_r = (self.angular_velocity - 0).norm(dim=1) * -0.01
         acc_r = (self.envs.acceleration - 0).norm(dim=1) * -0.001
-        ang_acc_r = (self.envs.angular_acceleration - 0).norm(dim=1) * -0.001
+        ang_acc_r = (self.envs.angular_acceleration - 0).norm(dim=1) * -0.002
         act_r = (self._action[:,1:].norm(dim=1).to(vel_r.device) * -0.003
                  + self._action[:,2:3].norm(dim=1).to(vel_r.device) * -0.01)
-        # act_change_r = (self.envs.dynamics._pre_action[0].to(self.device).T-
-        #                 self._action.to(self.device)
-        #                 ).norm(dim=-1) * -0.002
+
         act_change_r = (self.envs.dynamics._pre_action[-1].to(self.device)-
                         self.envs.dynamics._pre_action[-2].to(self.device)
-                        ).T.norm(dim=-1) * -0.001
+                        ).T.norm(dim=-1) * -0.002
+
+        acc_change_r = (self.envs.acceleration - self._pre_acc).norm(dim=1).pow(2) * -0.005
+        self._pre_acc = self.envs.acceleration.clone()
+        # act_r = self._action.norm(dim=1).cpu() * -0.001
 
         # projection v on backward direction
         unit_v = (self.velocity-0) / ((self.velocity-0).norm(dim=1, keepdim=True)+1e-8)
         inverse_v_proj = (unit_v * (self.direction-0)).sum(dim=1)
-        percep_r = inverse_v_proj * 0.03 * 1
+        percep_r = inverse_v_proj * 0.03 * 0.6
 
         # + acc_r + ang_acc_r
 
         # collision r
-        share_factor_collision = 0.7
+        share_factor_collision = 0.45
+        # share_factor_collision = 0.0
         collision_dis = self.collision_vector.norm(dim=1).clamp_min(0.)
         collision_dir = self.collision_vector / (collision_dis.unsqueeze(1)+1e-6)
         # approaching_point = self.envs.approaching_point
@@ -232,6 +242,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
                 vel_r + ang_vel_r + aware_r + keep_pos_r + acc_r+ act_r + act_change_r
                     + percep_r
                     + col_dis_r + col_vel_r
+                + acc_change_r
         )
 
         reward = diff_r + disc_r
@@ -239,8 +250,10 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         return {"reward":reward,
                 "keep_pos_r":keep_pos_r.clone().detach(),
                 "aware_r":aware_r.clone().detach(),
+                "ang_vel_r":ang_vel_r.clone().detach(),
                 "ang_acc_r":ang_acc_r.clone().detach(),
                 "percp_r":percep_r.clone().detach(),
                 "col_vel_r":col_vel_r.clone().detach(),
                 "col_dis_r":col_dis_r.clone().detach(),
+                "acc_change_r":acc_change_r.clone().detach(),
                 }
