@@ -2,34 +2,19 @@ env:
   num_scene: 32
   num_agent_per_scene: 8
   max_episode_steps: 2048
-  sensor_kwargs:
-    - sensor_type: DEPTH
-      uuid: depth
-      resolution:
-        - 64
-        - 64
-      position:
-        - 0
-        - 0.2
-        - 0.0
-    - sensor_type: SEMANTIC
-      uuid: semantic
-      resolution:
-        - 64
-        - 64
-      position:
-        - 0
-        - 0.2
-        - 0.0
+
   scene_kwargs:
-    path: VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty
+    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_empty
     obj_settings:
-      path: cubic
+      path: box30/track/train/train_fast
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
     ctrl_delay: True
     action_type: "bodyrate"
+    comm_delay: 0.06
+    cfg: drone_d435i_jetson_orin_nx
+
   random_kwargs:
     state_generator:
 #      class: Uniform
@@ -38,9 +23,16 @@ env:
         - position:
             mean: [ 5.0, 0.0, 1]
             half: [ 3., 3., 0.2]
+          velocity:
+            mean: [0.0, 0.0, 0.0]
+            half: [1.0, 1.0, 0.2]
+          min_dis: 2.0          
+          test: True
 
   visual: True
   device: cpu
+  keep_dis: 3.0
+  is_collision_reset: False
   requires_grad: True
   tensor_output: True
 
@@ -48,9 +40,9 @@ eval_env:
   num_scene: 2
   num_agent_per_scene: 4
   scene_kwargs:
-    path: VisFly/datasets/visfly-beta/configs/scenes/box15_wall_empty
+    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_empty
     obj_settings:
-      path: cubic
+      path: box30/track/train/train_fast
     render_settings:
       mode: fix
       view: custom
