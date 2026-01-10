@@ -99,8 +99,8 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         # self.update_target()
         self.observation_space["state"] = spaces.Box(
             shape=(16,), low=-th.inf, high=th.inf, dtype=np.float32)
-        self.observation_space["state"] = spaces.Box(
-            shape=(19,), low=-th.inf, high=th.inf, dtype=np.float32)
+        # self.observation_space["state"] = spaces.Box(
+        #     shape=(19,), low=-th.inf, high=th.inf, dtype=np.float32)
         test = 1
         # self.update_target()
         self.keep_dis = keep_dis
@@ -134,7 +134,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         self.head_targets = orientation.world_to_head(rela_tar.T).T
         self.head_targets_v = orientation.world_to_head((rela_v.T-0)).T
-        self.head_targets_a = orientation.world_to_head((rela_a.T-0)).T
+        # self.head_targets_a = orientation.world_to_head((rela_a.T-0)).T
 
         self.head_v = orientation.world_to_head((self.velocity.T-0)).T
         test = 1
@@ -148,7 +148,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         state = th.hstack([
             self.head_targets+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 2 * self.box_noise,
             self.head_targets_v+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 10 * self.box_noise,
-            self.head_targets_a+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 10 * self.box_noise,
+            # self.head_targets_a+th.randn_like(self.box_center) * th.tensor([0.01,0.01, 0.01]) * 10 * self.box_noise,
             # self.head_targets+th.sin(2*th.pi*self.t).unsqueeze(1)*0.05 * self.box_noise,
             # self.head_targets_v-th.sin(2*th.pi*self.t).unsqueeze(1)*0.2 * self.box_noise,
             self.orientation,
@@ -161,8 +161,6 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         obs = TensorDict({
             "state": state,
-            # "depth": th.as_tensor(self.sensor_obs["depth"]).clamp(0.2, 10),
-            # "semantic": th.as_tensor(self.sensor_obs["semantic"].astype(np.float32)),
         })
 
         if "color" in self.sensor_obs:
@@ -199,14 +197,14 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         acc_r = (self.envs.acceleration - 0).norm(dim=1) * -0.001
         ang_acc_r = (self.envs.angular_acceleration - 0).norm(dim=1) * -0.002
         act_r = (self._action[:,1:].norm(dim=1).to(vel_r.device) * -0.003
-                 + self._action[:,2:3].norm(dim=1).to(vel_r.device) * -0.01)
+                 + self._action[:,2:3].norm(dim=1).to(vel_r.device) * -0.025)
 
         act_change_r = (self.envs.dynamics._pre_action[-1].to(self.device)-
                         self.envs.dynamics._pre_action[-2].to(self.device)
                         ).T.norm(dim=-1) * -0.002
 
-        acc_change_r = (self.envs.acceleration - self._pre_acc).norm(dim=1).pow(2) * -0.005
-        self._pre_acc = self.envs.acceleration.clone()
+        # acc_change_r = (self.envs.acceleration - self._pre_acc).norm(dim=1).pow(2) * -0.005
+        # self._pre_acc = self.envs.acceleration.clone()
         # act_r = self._action.norm(dim=1).cpu() * -0.001
 
         # projection v on backward direction
@@ -218,7 +216,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         # collision r
         share_factor_collision = 0.45
-        # share_factor_collision = 0.0
+        share_factor_collision = 0.0
         collision_dis = self.collision_vector.norm(dim=1).clamp_min(0.)
         collision_dir = self.collision_vector / (collision_dis.unsqueeze(1)+1e-6)
         # approaching_point = self.envs.approaching_point
@@ -239,10 +237,11 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         disc_r = base_r
 
         diff_r = (
-                vel_r + ang_vel_r + aware_r + keep_pos_r + acc_r+ act_r + act_change_r
+                vel_r + ang_vel_r + aware_r + keep_pos_r + acc_r+ act_r
+                + act_change_r
                     + percep_r
-                    + col_dis_r + col_vel_r
-                + acc_change_r
+                    # + col_dis_r + col_vel_r
+                # + acc_change_r
         )
 
         reward = diff_r + disc_r
@@ -255,5 +254,5 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
                 "percp_r":percep_r.clone().detach(),
                 "col_vel_r":col_vel_r.clone().detach(),
                 "col_dis_r":col_dis_r.clone().detach(),
-                "acc_change_r":acc_change_r.clone().detach(),
+                # "acc_change_r":acc_change_r.clone().detach(),
                 }

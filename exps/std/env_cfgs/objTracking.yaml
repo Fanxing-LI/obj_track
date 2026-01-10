@@ -1,30 +1,22 @@
 env:
-  num_scene: 64
+  num_scene: 16
   num_agent_per_scene: 8
   max_episode_steps: 2048
-  sensor_kwargs:
-    - sensor_type: DEPTH
-      uuid: depth
-      resolution:
-        - 12
-        - 16
-      position:
-        - 0
-        - 0.0
-        - -0.1
-      orientation:
-        - 0
-        - 0
-        - 0
-#    - sensor_type: SEMANTIC
-#      uuid: semantic
+#  sensor_kwargs:
+#    - sensor_type: DEPTH
+#      uuid: depth
 #      resolution:
-#        - 64
-#        - 64
+#        - 12
+#        - 16
 #      position:
 #        - 0
-#        - 0.2
 #        - 0.0
+#        - -0.1
+#      orientation:
+#        - 0
+#        - 0
+#        - 0
+
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box30_mix/box30_high_tree
 #    path: VisFly/datasets/visfly-beta/configs/scenes/box30_mix
@@ -36,7 +28,7 @@ env:
     ctrl_dt: 0.03
     ctrl_delay: True
     action_type: "bodyrate"
-#    cfg: drone_d435i_n100
+    # cfg: drone_d435i_n100
     cfg: drone_d435i_jetson_orin_nx
   random_kwargs:
     state_generator:
