@@ -2,20 +2,20 @@ env:
   num_scene: 16
   num_agent_per_scene: 8
   max_episode_steps: 2048
-#  sensor_kwargs:
-#    - sensor_type: DEPTH
-#      uuid: depth
-#      resolution:
-#        - 12
-#        - 16
-#      position:
-#        - 0
-#        - 0.0
-#        - -0.1
-#      orientation:
-#        - 0
-#        - 0
-#        - 0
+  sensor_kwargs:
+    - sensor_type: DEPTH
+      uuid: depth
+      resolution:
+        - 12
+        - 16
+      position:
+        - 0
+        - 0.0
+        - -0.1
+      orientation:
+        - 0
+        - 0
+        - 0
 
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box30_mix/box30_high_tree

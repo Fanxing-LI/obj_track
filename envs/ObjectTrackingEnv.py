@@ -163,10 +163,12 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
             "state": state,
         })
 
+        depth_preprocess = lambda x: 1/(1+th.as_tensor(x).clamp(0.1, 25.0)/3)
+
         if "color" in self.sensor_obs:
             obs["color"] = th.as_tensor(self.sensor_obs["color"].astype(np.float32))
         if "depth" in self.sensor_obs:
-            obs["depth"] = 1/(1+th.as_tensor(self.sensor_obs["depth"])/4)
+            obs["depth"] = depth_preprocess(self.sensor_obs["depth"])
         if "depth2" in self.sensor_obs:
             obs["depth2"] = th.as_tensor(self.sensor_obs["depth2"])
 
