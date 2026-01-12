@@ -174,22 +174,16 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
 
         return obs
 
-    def detach(self):
-        super().detach()
-        self._pre_acc = self._pre_acc.detach()
-
     def get_success(self) -> th.Tensor:
         return th.full((self.num_agent,), False)
 
     def get_reward(self, *args, **kwargs) -> th.Tensor:
-        if not hasattr(self, "_pre_acc"):
-            self._pre_acc = self.envs.acceleration.clone()
 
         base_r = 0.1 * th.ones((self.num_envs,), dtype=th.float32)
         target_vector = self.target - self.position
         normal_target_vector = target_vector / target_vector.norm(dim=1, keepdim=True) - 0
         proj = ((self.direction.clone() - 0) * normal_target_vector - 0).sum(dim=1)
-        aware_r = proj * 0.06 * 0.6
+        aware_r = proj * 0.036
         # aware_r = proj * 0.05
         align_v = self.target_v if hasattr(self, "target_v") else self.velocity
         target_dis = self.keep_dis * (align_v.norm(dim=1)/4).clamp_min(1.0).detach()
@@ -212,37 +206,39 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         # projection v on backward direction
         unit_v = (self.velocity-0) / ((self.velocity-0).norm(dim=1, keepdim=True)+1e-8)
         inverse_v_proj = (unit_v * (self.direction-0)).sum(dim=1)
-        percep_r = inverse_v_proj * 0.03 * 0.6
+        percep_r = inverse_v_proj * 0.02
 
         # + acc_r + ang_acc_r
 
         # collision r
-        share_factor_collision = 0.45
-        share_factor_collision = 0.0
+        share_factor_collision = -0.45
+        # share_factor_collision = 0.0
         collision_dis = self.collision_vector.norm(dim=1).clamp_min(0.)
         collision_dir = self.collision_vector / (collision_dis.unsqueeze(1)+1e-6)
+        collision_dis = (collision_dis - 0.1).abs()
         # approaching_point = self.envs.approaching_point
         # velocity
-        thre_vel = 1.5
+        thre_vel = 1.0
         weight = ((thre_vel-collision_dis.detach()).clamp(min=0, )/thre_vel).pow(1)
         # weight = 1 / (1 + ((thre_vel-collision_dis) * 0.3).clamp(min=0,))
         col_approach_velocity = (self.velocity * collision_dir.detach()).sum(dim=1).clamp_min(0.)
-        col_vel_r = col_approach_velocity * weight * -1 * share_factor_collision * 0.5
+        col_vel_r = col_approach_velocity * weight * share_factor_collision * 0.5
 
         # position
-        k = 0.015
-        func = lambda x: 12 * k / (x + k)
+        k = 0.01
+        func = lambda x: 2 * k / (x + k) * 12
         func3 = lambda x: 2.5 * th.log(1 + th.exp(-32 * x))
         func2 = lambda x: -x
-        col_dis_r = func(collision_dis) * -2 * share_factor_collision
+        col_dis_r = func(collision_dis) * share_factor_collision
 
         disc_r = base_r
 
         diff_r = (
-                vel_r + ang_vel_r + aware_r + keep_pos_r + acc_r+ act_r
+                vel_r + ang_vel_r
+                + aware_r + keep_pos_r
                 + act_change_r
                     + percep_r
-                    # + col_dis_r + col_vel_r
+                    + col_dis_r + col_vel_r
                 # + acc_change_r
         )
 

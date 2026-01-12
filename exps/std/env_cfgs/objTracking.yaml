@@ -104,16 +104,16 @@ eval_env:
             mean: [ 0.0, 0.0, 0.0 ]
             half: [ 1.0, 1.0, 0.2 ]
           test: True
-          max_dis: 2.99
-          min_dis: 3.0
+          max_dis: 2.
+          min_dis: 5
 
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box30_0.04tree
 #    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high_empty
     obj_settings:
 #      path: box30/track/train_slow_test
-      path: box30/track/train_slow_test_straight
-#      path: box30/track/train_fast_test_straight
+#      path: box30/track/train_slow_test_straight
+      path: box30/track/train_fast_test_straight
     render_settings:
       mode: fix
       view: top

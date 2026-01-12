@@ -139,9 +139,9 @@ class Test(TestBase):
             with th.no_grad():
                 if ROS_wrapper:
                     # For ROS wrapper, use its predict method which handles action communication
-                    action = ROS_env.predict(obs, deterministic=True)
+                    action = ROS_env.predict(obs, deterministic=True, sample=True)
                 else:
-                    action = policy.predict(obs, deterministic=True)
+                    action = policy.predict(obs, deterministic=True, sample=True)
                 # action = policy.predict(obs, deterministic=True)
                 if isinstance(action, tuple):
                     action = action[0]
