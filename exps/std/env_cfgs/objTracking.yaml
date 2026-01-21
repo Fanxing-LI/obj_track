@@ -1,12 +1,12 @@
 env:
-  num_scene: 32
+  num_scene: 8
   num_agent_per_scene: 8
   max_episode_steps: 2048
 
   scene_kwargs:
-    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_empty
+    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high20_empty
     obj_settings:
-      path: box30/track/train/train_fast
+      path: box30_high20/track/train_fast
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
@@ -37,15 +37,52 @@ env:
   tensor_output: True
 
 eval_env:
-  num_scene: 2
-  num_agent_per_scene: 4
+  num_scene: 1
+  num_agent_per_scene: 1
+  max_episode_steps: 1024
+  sensor_kwargs:
+      - sensor_type: COLOR
+        uuid: color
+        resolution:
+          - 128
+          - 128
+        position:
+          - 0
+          - 0.0
+          - -0.1
+  random_kwargs:
+    state_generator:
+      #      class: Uniform
+      class: TargetUniform
+      kwargs:
+        - position:
+            mean: [ 5.0, 0.0, 1 ]
+            half: [ 3., 3., 0.4 ]
+          velocity:
+            mean: [ 0.0, 0.0, 0.0 ]
+            half: [ 1.0, 1.0, 0.2 ]
+          test: True
+          max_dis: 4.
+          min_dis: 5
   scene_kwargs:
-    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_empty
+    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high20_empty
     obj_settings:
-      path: box30/track/train/train_fast
+      path: box30_high20/track/test_fast
     render_settings:
       mode: fix
       view: custom
-      resolution: [1080,1920]
+      axes: True
+      resolution: [480,480]
       position: [[7., 6.8, 8.5], [10, 0, 1.5]]
-      trajectory: True
+      trajectory: False
+  dynamics_kwargs:
+    dt: 0.03
+    ctrl_dt: 0.03
+    ctrl_delay: True
+    action_type: "bodyrate"
+    comm_delay: 0.06
+    cfg: drone_d435i_jetson_orin_nx
+test:
+  is_video: False
+  is_fig_save: True
+  is_video_save: True

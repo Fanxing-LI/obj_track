@@ -11,6 +11,8 @@ from algorithms.BPTT_series.BPTT import BPTT
 from algorithms.BPTT_series.SHAC import SHAC
 from VisFly.utils.algorithms.PPO import PPO
 from VisFly.utils.algorithms.SAC import SAC
+from algorithms.dream_to_fly.algorithms.diff_dreamer3 import DiffDreamer
+from algorithms.dream_to_fly.algorithms.dreamer import dreamer
 import torch as th
 import sys
 import os
@@ -33,11 +35,7 @@ def parse_args():
 
 
 env_alias = {
-    "hovering": HoverEnv,
-    "hoveringVisual": VisualHoverEnv,
     "objTracking": ObjectTrackingEnv,
-    "awareTracking": AwareTrackEnv2
-
 }
 
 alg_alias = {
@@ -45,6 +43,8 @@ alg_alias = {
     "PPO": PPO,
     "SHAC": SHAC,
     "SAC": SAC,
+    "diff_dreamer": DiffDreamer,
+    "dreamer": dreamer,
 }
 
 args = parse_args().parse_args()
@@ -63,13 +63,38 @@ if args.train:
         **env_config["env"]
     )
 
-    model = alg_alias[args.algorithm](
-        env=env,
-        seed=args.seed,
-        comment=args.comment,
-        save_path=save_folder,
-        **config["algorithm"]
-    )
+    if args.algorithm == "BPTT_sample":
+        env_config["env"]["num_agent_per_scene"] = config["algorithm"]["actor_batch_size"]
+        env_config["env"]["num_scene"] = 1
+        env_config["env"]["visual"] = False
+        env_config["env"]["device"] = "cpu"
+        train_env = env_alias[args.env](**env_config["env"])
+        model = alg_alias[args.algorithm](
+            env=env,
+            seed=args.seed,
+            comment=args.comment,
+            save_path=save_folder,
+            train_env=train_env,
+            **config["algorithm"]
+        )
+    elif args.algorithm == "diff_dreamer":
+        train_env = env_alias[args.env](**env_config["env"])
+        model = alg_alias[args.algorithm](
+            env=env,
+            seed=args.seed,
+            comment=args.comment,
+            save_path=save_folder,
+            # train_env=train_env,
+            **config["algorithm"]
+        )
+    else:
+        model = alg_alias[args.algorithm](
+            env=env,
+            seed=args.seed,
+            comment=args.comment,
+            save_path=save_folder,
+            **config["algorithm"]
+        )
 
     if args.weight is not None:
         # model = model.load(path=save_folder + args.weight, env=env)

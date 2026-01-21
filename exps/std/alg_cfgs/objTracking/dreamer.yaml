@@ -1,0 +1,147 @@
+env:
+  class: hovering
+  kwargs:
+    num_scene: 1
+    num_agent_per_scene: 4
+    visual: True
+    requires_grad: False
+    max_episode_steps: 256
+    tensor_output: True
+    scene_kwargs:
+      path: "VisFly/datasets/spy_datasets/configs/garage_empty"
+
+
+eval_env:
+  kwargs:
+    num_agent_per_scene: 1
+    seed: 11
+    scene_kwargs:
+      render_settings:
+        mode: fix
+        view: custom
+        resolution: [1080,1920]
+        position: [[-4., 0, 4.5], [7, 0, 3.5]]
+#        position: [[7., 6.8, 5.5], [7, 4.8, 4.5]]
+        trajectory: False
+
+learn:
+    total_timesteps: 50000000
+    eval_interval: 100000
+
+algorithm:
+  device: cuda
+  actor_batch_size: 512
+  gradient_steps: 1
+  batch_size: 16
+  batch_length: 64
+  H: 32
+  ent_coef: 0.0003
+  buffer_size: 400000
+  train_freq: 200
+  actor_gradient_step: 5
+
+  world_kwargs:
+    reward_EMA: True
+    activation_fn: silu
+    deter_dim: 512
+    stoch_dim: 32
+    hidden_dim: 512
+    unimix_ratio: 0.01
+    discrete: 32
+
+    optimizer_class: adam
+    optimizer_kwargs:
+      weight_decay: 0.00000
+      lr: 0.0001
+
+    sequence_model_kwargs:
+      initial: learned
+      recurrent_class: GRUCell
+      action_net_arch:
+        layer: []
+#        ln: True
+      stoch_net_arch:
+        layer: []
+      in_net_arch:
+        layer: []
+        ln: True
+        bias: False
+      out_net_arch:
+        layer: []
+        ln: True
+        bias: False
+
+    encoder_kwargs:
+      feature_extractor_kwargs:
+        state:
+          layer: [ 512, 512 ]
+          ln: True
+      deter_net_arch:
+        layer: []
+      net_arch:
+        layer: []
+        ln: True
+        bias: False
+
+    reward_predictor_kwargs:
+      dist: symlog_disc
+      net_arch:
+          layer: [512, 512]
+          ln: True
+          bias: False
+
+    continue_predictor_kwargs:
+      dist: bernoulli
+      net_arch:
+        layer: [512, 512]
+        ln: True
+        bias: False
+
+    decoder_kwargs:
+      state:
+        dist: symlog_mse
+        net_arch:
+          layer: [512, 512]
+          ln: True
+
+  policy_kwargs:
+    features_extractor_kwargs:
+      net_arch:
+        latent:
+          layer: []
+          ln: False
+    critic:
+      dist: symlog_disc
+      n_critics: 1
+      net_arch:
+        layer: [512, 256]
+        ln: True
+    actor:
+      dist: normal
+#      squash_output: False
+      net_arch:
+        layer: [512, 256]
+        ln: True
+#    ln: True
+    activation_fn: silu
+    optimizer_class: adam
+    optimizer_kwargs:
+      lr: 0.00003
+      weight_decay: 0.00001
+#    lr_scheduler_class: cosine_restart
+#    lr_scheduler_kwargs:
+#      T_0: 2000
+#      T_mult: 2
+#      eta_min: 0.00003
+#    share_features_extractor: True
+
+  loss_scale:
+    dyn_scale: 0.5  # prior approaching post
+    rep_scale: 0.1  # post approaching prior
+    reward_scale: 1.0
+    continue_scale: 1.0
+    min_kl: 1.0
+    decoder_scale:
+      state: 1
+
+

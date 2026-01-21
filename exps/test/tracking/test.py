@@ -77,10 +77,6 @@ class Test(TestBase):
     ):
         print(f"--------------------debug: enter test")
 
-        if is_fig_save:
-            if not is_fig:
-                raise ValueError("is_fig_save must be True if is_fig is True")
-
         if policy is None:
             policy = self.model.policy
         env = self.env
@@ -114,8 +110,11 @@ class Test(TestBase):
         self.eq_l = []
         roun = 0
         prev_len = 0
+        loop_len = 0
         print("enter the loop")
         while True:
+            loop_len += 1
+            print(loop_len)
             with th.no_grad():
                 if ROS_wrapper:
                     # For ROS wrapper, use its predict method which handles action communication
@@ -162,19 +161,19 @@ class Test(TestBase):
                     # sub_image = np.tile(sub_image, (1, 1, 1, 3))  # (N, H, W, C)
                     # replace_dim = (shape_img[0] - sub_image.shape[1] - edge_int, shape_img[1])
                     replace_dim = (shape_img[0], shape_img[1] - sub_image.shape[1] - edge_int)
-                    for i in range(len(obs["depth"])):
-                        sub_image_shape = obs["depth"][i].shape[1:3]
-                        # replace_dim = (
-                        #     replace_dim[0],
-                        #     replace_dim[1] - sub_image_shape[1] - edge_int
-                        # )
-                        replace_dim = (
-                            replace_dim[0] - sub_image_shape[1] - edge_int,
-                            replace_dim[1]
-                        )
-                        imgs[0][replace_dim[0]:(replace_dim[0] + sub_image_shape[0]),
-                                replace_dim[1]:(replace_dim[1] + sub_image_shape[1]), :] = \
-                            cv2.cvtColor(sub_image[i], cv2.COLOR_RGB2RGBA)
+                    # for i in range(len(obs["depth"])):
+                    #     sub_image_shape = obs["depth"][i].shape[1:3]
+                    #     # replace_dim = (
+                    #     #     replace_dim[0],
+                    #     #     replace_dim[1] - sub_image_shape[1] - edge_int
+                    #     # )
+                    #     replace_dim = (
+                    #         replace_dim[0] - sub_image_shape[1] - edge_int,
+                    #         replace_dim[1]
+                    #     )
+                    #     imgs[0][replace_dim[0]:(replace_dim[0] + sub_image_shape[0]),
+                    #             replace_dim[1]:(replace_dim[1] + sub_image_shape[1]), :] = \
+                    #         cv2.cvtColor(sub_image[i], cv2.COLOR_RGB2RGBA)
 
                 render_image = cv2.cvtColor(imgs[0], cv2.COLOR_RGBA2RGB)
 
@@ -201,15 +200,13 @@ class Test(TestBase):
         mean_l = th.as_tensor(self.eq_l, dtype=th.float32).mean().item()
         print(f"Average Rewards:{mean_r}, Average Length:{mean_l}")
 
-        if is_fig:
-            figs = self.draw()
-            if is_fig_save:
-                for i, fig in enumerate(figs):
-                    self.save_fig(fig, c=i)
+        figs = self.draw()
+        if is_fig_save:
+            for i, fig in enumerate(figs):
+                self.save_fig(fig, c=i)
         else:
             figs = []
-        if is_video:
-            self.play(is_sub_video=is_sub_video)
+
         if is_video_save:
             self.save_video()
 
