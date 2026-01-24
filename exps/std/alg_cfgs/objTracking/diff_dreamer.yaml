@@ -110,8 +110,8 @@ algorithm:
   learning_rate:
     class: cosine
     kwargs:
-      initial: 0.0005
-      final: 0.0001
+      initial: 0.0002
+      final: 0.0002
       period: 0.1
 #    share_features_extractor: True
 
@@ -127,8 +127,11 @@ algorithm:
   scene_freq: 3000000
 
 learn:
-    total_timesteps: 50000000
+    total_timesteps: 20000000
     # log_interval: 50
+
+load: 
+  only_load_world: True
 
 test:
   is_fig_save: True

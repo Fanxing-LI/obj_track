@@ -98,7 +98,7 @@ if args.train:
 
     if args.weight is not None:
         # model = model.load(path=save_folder + args.weight, env=env)
-        model.load_parameters(save_folder + args.weight)
+        model.load_parameters(save_folder + args.weight, **config["load"])
         model.create_save_path(args.comment)
 
     model.learn(**config["learn"])

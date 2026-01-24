@@ -27,6 +27,7 @@ env:
             mean: [0.0, 0.0, 0.0]
             half: [1.0, 1.0, 0.2]
           min_dis: 2.0          
+          max_dis: 5.0          
           test: True
 
   visual: True
@@ -75,13 +76,7 @@ eval_env:
       resolution: [480,480]
       position: [[7., 6.8, 8.5], [10, 0, 1.5]]
       trajectory: False
-  dynamics_kwargs:
-    dt: 0.03
-    ctrl_dt: 0.03
-    ctrl_delay: True
-    action_type: "bodyrate"
-    comm_delay: 0.06
-    cfg: drone_d435i_jetson_orin_nx
+
 test:
   is_video: False
   is_fig_save: True
