@@ -6,14 +6,14 @@ env:
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high20_empty
     obj_settings:
-      path: box30_high20/track/train_fast
+      path: box30_high20/track/train_fast_agile
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
     ctrl_delay: True
     action_type: "bodyrate"
     comm_delay: 0.06
-    cfg: drone_d435i_jetson_orin_nx
+    cfg: drone_d435i_jetson_orin_nx_fast
 
   random_kwargs:
     state_generator:
@@ -22,12 +22,12 @@ env:
       kwargs:
         - position:
             mean: [ 5.0, 0.0, 1]
-            half: [ 3., 3., 0.2]
+            half: [ 2., 2., 0.2]
           velocity:
             mean: [0.0, 0.0, 0.0]
-            half: [1.0, 1.0, 0.2]
-          min_dis: 2.0          
-          max_dis: 5.0          
+            half: [2.0, 2.0, 1.]
+          min_dis: 3.0          
+          max_dis: 6.0          
           test: True
 
   visual: True
@@ -36,9 +36,10 @@ env:
   is_collision_reset: False
   requires_grad: True
   tensor_output: True
+  box_noise: 0.0
 
 eval_env:
-  num_scene: 1
+  num_scene: 12
   num_agent_per_scene: 1
   max_episode_steps: 1024
   sensor_kwargs:
@@ -61,14 +62,15 @@ eval_env:
             half: [ 3., 3., 0.4 ]
           velocity:
             mean: [ 0.0, 0.0, 0.0 ]
-            half: [ 1.0, 1.0, 0.2 ]
+            half: [ 0.0, 0.0, 0 ]
           test: True
           max_dis: 4.
-          min_dis: 5
+          min_dis: 4.1
   scene_kwargs:
     path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high20_empty
     obj_settings:
-      path: box30_high20/track/test_fast
+      # path: box30_high20/track/test_fast_agile
+      path: box30_high20/track/train_fast_agile
     render_settings:
       mode: fix
       view: custom

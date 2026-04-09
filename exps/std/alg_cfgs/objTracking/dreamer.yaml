@@ -1,32 +1,6 @@
-env:
-  class: hovering
-  kwargs:
-    num_scene: 1
-    num_agent_per_scene: 4
-    visual: True
-    requires_grad: False
-    max_episode_steps: 256
-    tensor_output: True
-    scene_kwargs:
-      path: "VisFly/datasets/spy_datasets/configs/garage_empty"
-
-
-eval_env:
-  kwargs:
-    num_agent_per_scene: 1
-    seed: 11
-    scene_kwargs:
-      render_settings:
-        mode: fix
-        view: custom
-        resolution: [1080,1920]
-        position: [[-4., 0, 4.5], [7, 0, 3.5]]
-#        position: [[7., 6.8, 5.5], [7, 4.8, 4.5]]
-        trajectory: False
-
 learn:
-    total_timesteps: 50000000
-    eval_interval: 100000
+    total_timesteps: 100000000
+    log_interval: 200
 
 algorithm:
   device: cuda
@@ -34,15 +8,15 @@ algorithm:
   gradient_steps: 1
   batch_size: 16
   batch_length: 64
-  H: 32
+  H: 96
   ent_coef: 0.0003
   buffer_size: 400000
-  train_freq: 200
-  actor_gradient_step: 5
+  train_freq: 48
+  actor_gradient_steps: 5
 
   world_kwargs:
     reward_EMA: True
-    activation_fn: silu
+    activation_fn: leaky_relu
     deter_dim: 512
     stoch_dim: 32
     hidden_dim: 512
@@ -123,7 +97,7 @@ algorithm:
         layer: [512, 256]
         ln: True
 #    ln: True
-    activation_fn: silu
+    activation_fn: leaky_relu
     optimizer_class: adam
     optimizer_kwargs:
       lr: 0.00003

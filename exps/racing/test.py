@@ -21,12 +21,10 @@ class Test(TestBase):
         self.target_all = []
         self.target_dis_all = []
         self.center_all = []
-        
-        self.body_target_all = []
 
     def draw(self, names=None):
         state_data = th.stack(self.state_all).cpu()
-        targets_dis = th.stack(self.target_dis_all)
+        # targets_dis = th.stack(self.target_dis_all)
         action = th.stack([th.tensor(a) for a in self.action_all]).cpu()
         t = np.stack(self.t)[:, 0]
         for i in range(self.model.env.num_envs):
@@ -47,9 +45,9 @@ class Test(TestBase):
             plt.subplot(2, 3, 5)
             plt.plot(t[:-1], action[:, i, :], label=["a", "awx", "awy", "awz"])
             plt.legend()
-            plt.subplot(2, 3, 6)
-            plt.plot(t, targets_dis[:, i], label="target")
-            plt.legend()
+            # plt.subplot(2, 3, 6)
+            # plt.plot(t, targets_dis[:, i], label="target")
+            # plt.legend()
             plt.tight_layout()
             plt.show()
         # col_dis = np.array([collision["col_dis"] for collision in self.collision_all])
@@ -97,13 +95,13 @@ class Test(TestBase):
         if env.envs.dynamic_object_position[0][0] is not None:
             start_obj_pos = env.envs.dynamic_object_position[0].clone()
         self.obs_all.append(obs)
-        if env.envs.dynamic_object_position[0][0] is not None:
-            self.center_all.append(env.box_center.clone())
+        # if env.envs.dynamic_object_position[0][0] is not None:
+        #     self.center_all.append(env.box_center.clone())
         self.state_all.append(env.state)
         self.info_all.append([{} for _ in range(env.num_envs)])
         self.t.append(env.t.clone())
-        self.target_dis_all.append((env.target - env.position).norm(dim=1))
-        self.target_all.append((env.target))
+        # self.target_dis_all.append((env.target - env.position).norm(dim=1))
+        self.target_all.append((env.targets))
         self.collision_all.append({"col_dis": env.collision_dis,
                                    "is_col": env.is_collision,
                                    "col_pt": env.collision_point})
@@ -142,15 +140,14 @@ class Test(TestBase):
             self.action_all.append(action)
             self.state_all.append(state)
             self.obs_all.append(obs)
-            if env.envs.dynamic_object_position[0][0] is not None:
-                self.center_all.append(env.box_center.clone())
+            # if env.envs.dynamic_object_position[0][0] is not None:
+            #     self.center_all.append(env.box_center.clone())
             self.info_all.append(copy.deepcopy(info))
-            self.target_dis_all.append((env.target - env.position).norm(dim=1))
-            self.target_all.append((env.target))
+            # self.target_dis_all.append((env.target - env.position).norm(dim=1))
+            self.target_all.append((env.targets))
             self.t.append(env.t.clone())
-            self.body_target_all.append(env.body_targets)
             if env.visual:
-                # render_kwargs["points"] = th.atleast_2d(env.target)
+                render_kwargs["points"] = th.atleast_2d(env.targets)
                 imgs = env.render(**render_kwargs)
                 obs = obs_as_tensor(obs, device="cpu")
                 if is_sub_video and len(self._img_names) > 0:
@@ -214,10 +211,4 @@ class Test(TestBase):
             self.save_video()
 
         render_video = th.as_tensor(np.stack(self.render_image_all, axis=0)).unsqueeze(0) if len(self.render_image_all) > 0 else None
-        
-        
-        # saved body targets as pth
-        body_targets = th.stack(self.body_target_all)  # (T, N, 3)
-        th.save(body_targets, os.path.join(self.save_path, f"body_targets.pth"))
-        print(f"Saved body targets to {os.path.join(self.save_path, f'body_targets.pth')}")
         return figs, render_video, mean_r, mean_l

@@ -1,16 +1,19 @@
+learn:
+    total_timesteps: 150000000
+    log_interval: 200
+    # eval_interval: 100000
+
 algorithm:
   device: cuda
   actor_batch_size: 128
   gradient_steps: 10
-  actor_gradient_steps: 1
   batch_size: 16
-  batch_length: 128
+  batch_length: 64
   H: 96
   ent_coef: 0.0003
   buffer_size: 400000
   train_freq: 48
-  tau: 0.005
-  gamma: 0.99
+  actor_gradient_steps: 5
 
   world_kwargs:
     reward_EMA: True
@@ -23,7 +26,7 @@ algorithm:
 
     optimizer_class: adam
     optimizer_kwargs:
-      weight_decay: 0.00001
+      weight_decay: 0.00000
       lr: 0.0001
 
     sequence_model_kwargs:
@@ -46,7 +49,7 @@ algorithm:
     encoder_kwargs:
       feature_extractor_kwargs:
         state:
-          layer: [512]
+          layer: [ 512, 512 ]
           ln: True
       deter_net_arch:
         layer: []
@@ -58,7 +61,7 @@ algorithm:
     reward_predictor_kwargs:
       dist: symlog_disc
       net_arch:
-          layer: [512]
+          layer: [512, 512]
           ln: True
           bias: False
 
@@ -77,63 +80,53 @@ algorithm:
           ln: True
 
   policy_kwargs:
-    share_features_extractor: False
     features_extractor_kwargs:
       net_arch:
-        state:
-          layer: [512]
-          # ln: True
         latent:
           layer: [256]
-        #   # ln: True
+          ln: False
     critic:
-      dist: mse
+      dist: symlog_disc
       n_critics: 2
       net_arch:
         layer: [512, 512]
-        # ln: True
+        ln: True
     actor:
       dist: normal
 #      squash_output: False
       net_arch:
         layer: [512, 512]
-        # ln: True
-
+        ln: True
 #    ln: True
     activation_fn: leaky_relu
     optimizer_class: adamW
     optimizer_kwargs:
-      # lr: 0.0002
-      weight_decay: 0.0001
-    share_features_extractor: False
-
-  learning_rate:
-    class: cosine
-    kwargs:
-      initial: 0.0002
-      final: 0.0002
-      period: 0.1
+      lr: 0.0001
+      weight_decay: 0.00001
+#    lr_scheduler_class: cosine_restart
+#    lr_scheduler_kwargs:
+#      T_0: 2000
+#      T_mult: 2
+#      eta_min: 0.00003
 #    share_features_extractor: True
 
   loss_scale:
     dyn_scale: 0.5  # prior approaching post
     rep_scale: 0.1  # post approaching prior
-    reward_scale: 0.0
-    continue_scale: 0.0
+    reward_scale: 0.2
+    continue_scale: 1.0
     min_kl: 1.0
     decoder_scale:
       state: 1
 
-  scene_freq: 3000000
-
-learn:
-    total_timesteps: 40000000
-    # log_interval: 50
 
 load: 
   only_load_world: False
 
+
 test:
+  is_fig: True
   is_fig_save: True
+  is_video: True
   is_video_save: True
-  render_kwargs: { }
+  render_kwargs: {}

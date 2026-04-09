@@ -6,7 +6,7 @@ algorithm:
   batch_size: 16
   batch_length: 128
   H: 96
-  ent_coef: 0.0003
+  ent_coef: 0.0000
   buffer_size: 400000
   train_freq: 48
   tau: 0.005
@@ -104,15 +104,14 @@ algorithm:
     optimizer_class: adamW
     optimizer_kwargs:
       # lr: 0.0002
-      weight_decay: 0.0001
+      weight_decay: 0.00001
     share_features_extractor: False
 
   learning_rate:
-    class: cosine
+    class: exponential
     kwargs:
-      initial: 0.0002
-      final: 0.0002
-      period: 0.1
+      initial: 0.0001
+      decay: 0.1
 #    share_features_extractor: True
 
   loss_scale:
@@ -127,8 +126,8 @@ algorithm:
   scene_freq: 3000000
 
 learn:
-    total_timesteps: 40000000
-    # log_interval: 50
+    total_timesteps: 100000000
+    log_interval: 1000
 
 load: 
   only_load_world: False

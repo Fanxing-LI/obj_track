@@ -241,5 +241,7 @@ examples/
 
 **/*.pt
 
+videos/
+
 # ignore tensorboard log event file
 *.tfevents.*

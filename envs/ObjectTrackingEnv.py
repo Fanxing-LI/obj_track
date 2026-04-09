@@ -64,8 +64,10 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.radius = 2
         self.box_center = th.ones((self.num_envs, 3), dtype=th.float32, device=self.device) * 0.5
         # self.update_target()
-        self.observation_space["state"] = spaces.Box(
-            shape=(16,), low=-th.inf, high=th.inf, dtype=np.float32)
+        # self.observation_space["tar_state"] = spaces.Box( 
+        #     shape=(3,), low=-th.inf, high=th.inf, dtype=np.float32)
+        # self.observation_space["state"] = spaces.Box(
+        #     shape=(16,), low=-th.inf, high=th.inf, dtype=np.float32)
         # self.observation_space["state"] = spaces.Box(
         #     shape=(19,), low=-th.inf, high=th.inf, dtype=np.float32)
         test = 1
@@ -124,15 +126,12 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         self.update_target()
 
         state = th.hstack([
-            self.head_targets,
-            self.head_targets_v,
+            self.head_targets+self.box_noise * (2 * (th.randn_like(self.head_targets)-0.5)).clamp(-1,1),
+            # self.head_targets_v+self.box_noise * (2 * (th.randn_like(self.head_targets)-0.5)).clamp(-1,1) * 2,
             self.orientation,
             self.head_v / 10,
             self.angular_velocity / 10,
         ]).to(self.device)
-        # return TensorDict({
-        #     "state": state,
-        # })
 
         obs = TensorDict({
             "state": state,
@@ -153,7 +152,7 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
         proj = ((self.direction.clone() - 0) * normal_target_vector - 0).sum(dim=1)
         aware_r = proj * 0.04
         # aware_r = proj * 0.05
-        align_v = self.target_v if hasattr(self, "target_v") else self.velocity
+        align_v = self.velocity
         target_dis = self.keep_dis * (align_v.norm(dim=1)/4).clamp_min(1.0).detach()
         keep_pos_r = ((self.position - self.target).norm(dim=1) - target_dis).abs() * -0.025
         vel_r = (self.velocity - 0).norm(dim=1) * -0.001
@@ -190,6 +189,12 @@ class ObjectTrackingEnv(DroneGymEnvsBase):
                 "ang_vel_r":ang_vel_r.clone().detach(),
                 "ang_acc_r":ang_acc_r.clone().detach(),
                 "percp_r":percep_r.clone().detach(),
+                "diff_r":diff_r,
+                "disc_r":disc_r
                 # "col_vel_r":col_vel_r.clone().detach(),
                 # "col_dis_r":col_dis_r.clone().detach(),
                 }
+
+    @property
+    def body_targets(self):
+        return self.envs.dynamics._orientation.inv_rotate((self.target - self.position).T).T

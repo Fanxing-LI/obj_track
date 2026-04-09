@@ -28,34 +28,38 @@ algorithm:
         layer: [512, 512]
 #        bn: True
 
-    activation_fn: leaky_relu
+    activation_fn: relu
     optimizer_class: adamW
     optimizer_kwargs:
-      weight_decay: 0.0001
+      weight_decay: 0.00001
     share_features_extractor: False
 
   learning_rate:
-    class: cosine
+    # class: cosine
+    # kwargs:
+    #   initial: 0.0001
+    #   final: 0.0002
+    #   period: 0.1
+    class: exponential
     kwargs:
-      initial: 0.0002
-      final: 0.0002
-      period: 0.1
+      initial: 0.0001
+      decay: 0.1
 
   horizon: 96
   tau: 0.005
   gamma: 0.99
   device: cuda
-  gradient_steps: 10
+  gradient_steps: 1
   train_freq: 48
   batch_size: 25600
   actor_gradient_steps: 1
   buffer_size: 100
-  ent_coef: 0.0003
+  ent_coef: 0.0000
   scene_freq: 3000000
 
 learn:
-  total_timesteps: 40000000
-#  log_interval: 1
+  total_timesteps: 100000000
+  log_interval: 200
 
 test:
   is_fig: True

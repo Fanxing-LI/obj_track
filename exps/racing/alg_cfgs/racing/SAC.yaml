@@ -1,5 +1,5 @@
 algorithm:
-  policy: CustomMultiInputPolicy
+  policy: MultiInputPolicy
   policy_kwargs:
     features_extractor_class: StateExtractor
     features_extractor_kwargs:
@@ -9,27 +9,29 @@ algorithm:
 
     net_arch:
       pi: [512, 512]
-      vf: [512, 512]
+      qf: [512, 512]
     activation_fn: relu
     optimizer_kwargs:
       weight_decay: 0.00001
     share_features_extractor: False
-  learning_rate: 0.0001
-  device: cuda
+  learning_rate: 0.0002
+  tau: 0.005
   gamma: 0.99
-  gae_lambda: 0.95
-  n_epochs: 10
-  n_steps: 256
-  batch_size: 65536
-  verbose: 1
-#  scene_freq: 3000000
+  device: cuda
+  gradient_steps: 10
+  batch_size: 256
+  train_freq: 10
+  verbose: True
+  buffer_size: 2000000
 
 learn:
-  total_timesteps: 100000000
+  total_timesteps: 25000000
+  log_interval: 100
 
 test:
   is_fig: True
   is_fig_save: True
+  is_render: True
   is_video: True
   is_video_save: True
   render_kwargs: {}

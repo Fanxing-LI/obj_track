@@ -4,11 +4,13 @@ sys.path.append(os.getcwd())
 # from VisFly.envs.HoverEnv import HoverEnv2 as HoverEnv
 from envs.HoverEnv import HoverEnv
 from envs.ObjectTrackingEnv import ObjectTrackingEnv
+from envs.DynRacingEnv import RacingEnv
 from envs.VisualHoverEnv import VisualHoverEnv
 # from envs.TrackingEnv import AwareTrackEnv
 from envs.TrackingEnv import AwareTrackEnv2
 from algorithms.BPTT_series.BPTT import BPTT
 from algorithms.BPTT_series.SHAC import SHAC
+from algorithms.BPTT_series.BPTT_KL import BPTT_KL
 from VisFly.utils.algorithms.PPO import PPO
 from VisFly.utils.algorithms.SAC import SAC
 from algorithms.dream_to_fly.algorithms.diff_dreamer3 import DiffDreamer
@@ -28,8 +30,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Run experiments', add_help=False)
     parser.add_argument('--comment', '-c', type=str, default="std")
     parser.add_argument("--train", "-t", type=int, default=1)
-    parser.add_argument("--algorithm", "-a", type=str, default="SHAC")
-    parser.add_argument("--env", "-e", type=str, default="objTracking")
+    parser.add_argument("--algorithm", "-a", type=str, default="PPO")
+    parser.add_argument("--env", "-e", type=str, default="racing")
     parser.add_argument("--seed", "-s", type=int, default=42)
     parser.add_argument("--weight", "-w", type=str, default=None, )
     return parser
@@ -37,6 +39,7 @@ def parse_args():
 
 env_alias = {
     "objTracking": ObjectTrackingEnv,
+    "racing": RacingEnv,    
 }
 
 alg_alias = {
@@ -47,6 +50,7 @@ alg_alias = {
     "diff_dreamer": DiffDreamer,
     "dreamer": dreamer,
     "diff_dreamer_sep": DiffDreamer_sep,
+    "BPTT_KL": BPTT_KL,
 }
 
 args = parse_args().parse_args()
@@ -114,9 +118,9 @@ else:
         **env_config["eval_env"]
     )
     model = alg_alias[args.algorithm].load(save_folder + args.weight, env=eval_env)
-    from exps.test.tracking.test import Test as tracking_test
+    from test import Test
 
-    test_handle = tracking_test(
+    test_handle = Test(
         model=model,
         save_path=save_folder + "/test",
         name=args.weight
