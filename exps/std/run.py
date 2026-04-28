@@ -23,12 +23,14 @@ from VisFly.utils.common import load_yaml_config
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Run experiments', add_help=False)
-    parser.add_argument('--comment', '-c', type=str, default="std")
+    parser.add_argument('--comment', '-c', type=str, default="track_only_target_p_main_reward")
     parser.add_argument("--train", "-t", type=int, default=1)
     parser.add_argument("--algorithm", "-a", type=str, default="SHAC")
     parser.add_argument("--env", "-e", type=str, default="objTracking")
     parser.add_argument("--seed", "-s", type=int, default=42)
-    parser.add_argument("--weight", "-w", type=str, default=None, )
+    # parser.add_argument("--weight", "-w", type=str, default="SHAC_no_avoid_10.zip")
+    # parser.add_argument("--weight", "-w", type=str, default="SHAC_track_only_target_p_2.zip")
+    parser.add_argument("--weight", "-w", type=str, default=None)
     return parser
 
 
@@ -83,6 +85,8 @@ else:
     eval_env = env_alias[args.env](
         **env_config["eval_env"]
     )
+    if __name__ != "__main__":
+        save_folder = "/home/hyx/obj_track_fast/exps/std/saved/objTracking/"
     model = alg_alias[args.algorithm].load(save_folder + args.weight, env=eval_env)
     from exps.test.tracking.test import Test as tracking_test
 

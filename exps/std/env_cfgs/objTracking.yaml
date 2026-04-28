@@ -3,19 +3,19 @@ env:
   num_agent_per_scene: 8
   max_episode_steps: 2048
   sensor_kwargs:
-    - sensor_type: DEPTH
-      uuid: depth
-      resolution:
-        - 12
-        - 16
-      position:
-        - 0
-        - 0.0
-        - -0.1
-      orientation:
-        - 0
-        - 0
-        - 0
+#    - sensor_type: DEPTH
+#      uuid: depth
+#      resolution:
+#        - 12
+#        - 16
+#      position:
+#        - 0
+#        - 0.0
+#        - -0.1
+#      orientation:
+#        - 0
+#        - 0
+#        - 0
 #    - sensor_type: SEMANTIC
 #      uuid: semantic
 #      resolution:
@@ -26,17 +26,17 @@ env:
 #        - 0.2
 #        - 0.0
   scene_kwargs:
-    path: VisFly/datasets/visfly-beta/configs/scenes/box30_mix/box30_high_tree
+    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high_empty
 #    path: VisFly/datasets/visfly-beta/configs/scenes/box30_mix
 #    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high_empty
     obj_settings:
-      path: box30/track/train_slow
+      path: box30/track/train_fast_track_only
   dynamics_kwargs:
     dt: 0.03
     ctrl_dt: 0.03
     ctrl_delay: True
     action_type: "bodyrate"
-    cfg: drone_d435i_n100
+    cfg: drone_d435i_t265_jetson_orin_nx
   random_kwargs:
     state_generator:
 #      class: Uniform
@@ -101,26 +101,28 @@ eval_env:
         - 0
   random_kwargs:
     state_generator:
-      #      class: Uniform
-      class: TargetUniform
+      class: Uniform
+#      class: TargetUniform
       kwargs:
         - position:
-            mean: [ 5.0, 0.0, 1 ]
+            mean: [ 10.0, 14.5, 3 ]
             half: [ 3., 3., 0.4 ]
           velocity:
             mean: [ 0.0, 0.0, 0.0 ]
             half: [ 1.0, 1.0, 0.2 ]
-          test: True
-          max_dis: 2.99
-          min_dis: 3.0
+#          test: True
+#          max_dis: 3.0
+#          min_dis: 2.99
 
   scene_kwargs:
-    path: VisFly/datasets/visfly-beta/configs/scenes/box30_0.04tree
-#    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high_empty
+#    path: VisFly/datasets/visfly-beta/configs/scenes/box30_0.04tree
+    path: VisFly/datasets/visfly-beta/configs/scenes/box30_wall_high_empty
     obj_settings:
 #      path: box30/track/train_slow_test
-      path: box30/track/train_slow_test_straight
+#      path: box30/track/train_fast_test_straight_backup
+#      path: box30/track/train_fast_test_curve_1
 #      path: box30/track/train_fast_test_straight
+      path: box30/track/dive_slow_debug
     render_settings:
       mode: fix
       view: top
